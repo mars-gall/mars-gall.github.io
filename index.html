@@ -66,15 +66,19 @@
         <button onclick="appendToDisplay('/')">/</button>
         <br>
         <button onclick="appendToDisplay('.')">.</button>
-        <button onclick="parseFloat('*-1')">+/-</button>
+        <button onclick="flip('*-1')">+/-</button>
     </div>
 
     <script>
         /* JavaScript to make the calculator work */
         const display = document.getElementById('display');
 
-        function appendToDisplay(input) {
-            display.value = parseFloat(currentvalue) * -1:
+        function flip() {
+            display.value *= -1
+        }
+
+        function appendToDisplay() {
+            display.value = parseFloat(currentvalue) * -1;
         }
 
         function appendToDisplay(input) {
