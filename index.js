@@ -116,29 +116,80 @@ class Enemy {
     if (this.velocity.x < -13.5) this.velocity.x = -13.5
     if (this.velocity.y < -13.5) this.velocity.y = -13.5
 
-    // Collision with other enemies
+    // Collision with other enemies (circle-based elastic collision with positional correction)
     if (this.collisionCooldown > 0) {
       this.collisionCooldown--
     }
 
-    for (let i = 0; i < enemies.length; i++) {
-      if (enemies[i] !== this && enemies[i].collisionCooldown === 0 && this.collisionCooldown === 0 && collision({
-        object1: this,
-        object2: enemies[i]
-      })) {
-        this.velocity.x *= -0.4
-        this.velocity.y *= -0.4
-        enemies[i].velocity.x *= -0.4
-        enemies[i].velocity.y *= -0.4
+    // Only handle each pair once: process collisions with enemies having a higher index
+    const myIndex = enemies.indexOf(this)
+    for (let i = myIndex + 1; i < enemies.length; i++) {
+      const other = enemies[i]
+      if (!other) continue
+      if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
+
+      // treat enemies as circles
+      const r1 = this.width / 2
+      const r2 = other.width / 2
+      const cx1 = this.position.x + r1
+      const cy1 = this.position.y + r1
+      const cx2 = other.position.x + r2
+      const cy2 = other.position.y + r2
+
+      const dx = cx2 - cx1
+      const dy = cy2 - cy1
+      const dist = Math.hypot(dx, dy)
+      const radii = r1 + r2
+
+      if (dist === 0) {
+        // jitter slightly to avoid zero-distance
+        dx = 1
+        dy = 0
+      }
+
+      if (dist < radii) {
+        // positional correction: push them apart along the collision normal
+        const nx = dx / (dist || 1)
+        const ny = dy / (dist || 1)
+        const overlap = radii - dist
+        const correction = overlap / 2
+        this.position.x -= nx * correction
+        this.position.y -= ny * correction
+        other.position.x += nx * correction
+        other.position.y += ny * correction
+
+        // relative velocity
+        const rvx = other.velocity.x - this.velocity.x
+        const rvy = other.velocity.y - this.velocity.y
+        const relVelAlongNormal = rvx * nx + rvy * ny
+
+        // if velocities are separating, skip impulse
+        if (relVelAlongNormal > 0) {
+          this.collisionCooldown = 10
+          other.collisionCooldown = 10
+          continue
+        }
+
+        // impulse scalar (equal mass), restitution
+        const e = 0.4
+        const j = -(1 + e) * relVelAlongNormal / 2
+        const impulseX = j * nx
+        const impulseY = j * ny
+
+        this.velocity.x -= impulseX
+        this.velocity.y -= impulseY
+        other.velocity.x += impulseX
+        other.velocity.y += impulseY
+
         this.collisionCooldown = 15
-        enemies[i].collisionCooldown = 15
+        other.collisionCooldown = 15
       }
     }
   }
 
   move() {
-    // Don't move for 2.5 seconds after spawning (150 frames at 60fps)
-    if (frames - this.spawnTime < 150) {
+    // Don't move for 1.5 seconds after spawning (90 frames at 60fps)
+    if (frames - this.spawnTime < 90) {
       return
     }
 
