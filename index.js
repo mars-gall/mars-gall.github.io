@@ -37,7 +37,7 @@ class Player {
   update() {
     this.draw()
     this.position.x += this.velocity.x
-    this.posialso tion.y += this.velocity.y
+    this.tion.y += this.velocity.y
   }
 }
 
@@ -58,6 +58,7 @@ class Enemy {
     this.color = color
     this.isDead = false
     this.spawnTime = frames
+    this.collisionCooldown = 0
     this.velocity = {
       x: 0,
       y: 0
@@ -81,10 +82,6 @@ class Enemy {
     })) {
       player.health -= 1
       this.health -= 1
-      player.velocity.x *= -1
-      player.velocity.y *= -1
-      this.velocity.x *= -1
-      this.velocity.y *= -1
     }
 
     // Apply sliding/momentum deceleration
@@ -120,8 +117,12 @@ class Enemy {
     if (this.velocity.y < -13.5) this.velocity.y = -13.5
 
     // Collision with other enemies
+    if (this.collisionCooldown > 0) {
+      this.collisionCooldown--
+    }
+
     for (let i = 0; i < enemies.length; i++) {
-      if (enemies[i] !== this && collision({
+      if (enemies[i] !== this && enemies[i].collisionCooldown === 0 && this.collisionCooldown === 0 && collision({
         object1: this,
         object2: enemies[i]
       })) {
@@ -129,6 +130,8 @@ class Enemy {
         this.velocity.y *= -0.4
         enemies[i].velocity.x *= -0.4
         enemies[i].velocity.y *= -0.4
+        this.collisionCooldown = 15
+        enemies[i].collisionCooldown = 15
       }
     }
   }
