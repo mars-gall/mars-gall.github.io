@@ -37,7 +37,7 @@ class Player {
   update() {
     this.draw()
     this.position.x += this.velocity.x
-    this.position.y += this.velocity.y
+    this.posialso tion.y += this.velocity.y
   }
 }
 
@@ -57,6 +57,7 @@ class Enemy {
     this.health = health
     this.color = color
     this.isDead = false
+    this.spawnTime = frames
     this.velocity = {
       x: 0,
       y: 0
@@ -133,6 +134,11 @@ class Enemy {
   }
 
   move() {
+    // Don't move for 2.5 seconds after spawning (150 frames at 60fps)
+    if (frames - this.spawnTime < 150) {
+      return
+    }
+
     // Add acceleration towards target (momentum)
     if (this.position.x > this.target.position.x) {
       this.velocity.x += -0.3
@@ -246,11 +252,29 @@ function animate() {
   }
 
   if (frames % spawnRate === 0) {
-    enemies.push(new Enemy({
-      position: {
+    let validSpawn = false
+    let spawnPos = {}
+    const minDistance = canvas.width * 0.3
+
+    // Keep trying to spawn until we find a valid position outside the safe zone
+    while (!validSpawn) {
+      spawnPos = {
         x: Math.floor(Math.random() * canvas.width),
         y: Math.floor(Math.random() * canvas.height)
-      },
+      }
+
+      // Calculate distance from player
+      const dx = spawnPos.x - (player.position.x + player.height / 2)
+      const dy = spawnPos.y - (player.position.y + player.width / 2)
+      const distance = Math.sqrt(dx * dx + dy * dy)
+
+      if (distance >= minDistance) {
+        validSpawn = true
+      }
+    }
+
+    enemies.push(new Enemy({
+      position: spawnPos,
       height: 50,
       width: 50,
       target: player,
