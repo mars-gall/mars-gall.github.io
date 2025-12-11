@@ -117,17 +117,30 @@ class Enemy {
     if (this.velocity.y > 15) this.velocity.y = 15
     if (this.velocity.x < -15) this.velocity.x = -15
     if (this.velocity.y < -15) this.velocity.y = -15
+
+    // Collision with other enemies
+    for (let i = 0; i < enemies.length; i++) {
+      if (enemies[i] !== this && collision({
+        object1: this,
+        object2: enemies[i]
+      })) {
+        this.velocity.x *= -0.4
+        this.velocity.y *= -0.4
+        enemies[i].velocity.x *= -0.4
+        enemies[i].velocity.y *= -0.4
+      }
+    }
   }
 
   move() {
     // Add acceleration towards target (momentum)
     if (this.position.x > this.target.position.x) {
-      this.velocity.x += -0.5
-    } else this.velocity.x += 0.5
+      this.velocity.x += -0.3
+    } else this.velocity.x += 0.3
 
     if (this.position.y > this.target.position.y) {
-      this.velocity.y += -0.5
-    } else this.velocity.y += 0.5
+      this.velocity.y += -0.3
+    } else this.velocity.y += 0.3
   }
 }
 
