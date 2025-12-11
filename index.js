@@ -30,14 +30,14 @@ class Player {
     c.fillRect(this.position.x, this.position.y, this.height, this.width)
     c.font = '50px Serif'
     c.fillText('Lives: ' + String(this.health), 50, 50)
-    c.fillStyle = 'bla'
+    c.fillStyle = 'black'
     c.fillText('You', this.position.x, this.position.y + this.height, 50)
   }
 
   update() {
     this.draw()
     this.position.x += this.velocity.x
-    this.tion.y += this.velocity.y
+    this.position.y += this.velocity.y
   }
 }
 
