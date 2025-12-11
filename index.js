@@ -113,11 +113,11 @@ class Enemy {
       this.velocity.y *= -0.75
     }
 
-    // Max speed limits
-    if (this.velocity.x > 15) this.velocity.x = 15
-    if (this.velocity.y > 15) this.velocity.y = 15
-    if (this.velocity.x < -15) this.velocity.x = -15
-    if (this.velocity.y < -15) this.velocity.y = -15
+    // Max speed limits (0.9 of player's max speed of 15)
+    if (this.velocity.x > 13.5) this.velocity.x = 13.5
+    if (this.velocity.y > 13.5) this.velocity.y = 13.5
+    if (this.velocity.x < -13.5) this.velocity.x = -13.5
+    if (this.velocity.y < -13.5) this.velocity.y = -13.5
 
     // Collision with other enemies
     for (let i = 0; i < enemies.length; i++) {
