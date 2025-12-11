@@ -193,6 +193,38 @@ class Enemy {
       return
     }
 
+    // Separation: steer away from nearby enemies to avoid crowding
+    const avoidRadius = 80
+    let ax = 0
+    let ay = 0
+    let count = 0
+    const cx = this.position.x + this.width / 2
+    const cy = this.position.y + this.width / 2
+
+    for (let i = 0; i < enemies.length; i++) {
+      const other = enemies[i]
+      if (other === this) continue
+      const ox = other.position.x + other.width / 2
+      const oy = other.position.y + other.width / 2
+      const dx = cx - ox
+      const dy = cy - oy
+      const dist = Math.hypot(dx, dy)
+      if (dist > 0 && dist < avoidRadius) {
+        const strength = (avoidRadius - dist) / avoidRadius
+        ax += (dx / dist) * strength
+        ay += (dy / dist) * strength
+        count++
+      }
+    }
+
+    if (count > 0) {
+      ax /= count
+      ay /= count
+      const avoidForce = 0.25
+      this.velocity.x += ax * avoidForce
+      this.velocity.y += ay * avoidForce
+    }
+
     // Add acceleration towards target (momentum)
     if (this.position.x > this.target.position.x) {
       this.velocity.x += -0.3
