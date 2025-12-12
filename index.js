@@ -103,20 +103,20 @@ class Enemy {
     if (this.position.x + this.velocity.x <= 0 ||
       this.position.x + this.height + this.velocity.x >= canvas.width
     ) {
-      this.velocity.x *= -0.85
+      this.velocity.x *= -2
     }
 
     if (this.position.y + this.velocity.y <= 0 ||
       this.position.y + this.width + this.velocity.y >= canvas.height
     ) {
-      this.velocity.y *= -0.85
+      this.velocity.y *= -2
     }
 
     // Max speed limits (0.9 of player's max speed of 15)
-    if (this.velocity.x > 14.00) this.velocity.x = 14.0
-    if (this.velocity.y > 14.00) this.velocity.y = 14.0
-    if (this.velocity.x < -14.00) this.velocity.x = -14.0
-    if (this.velocity.y < -14.00) this.velocity.y = -14.0
+    if (this.velocity.x > 17.50) this.velocity.x = 17.50
+    if (this.velocity.y > 17.50) this.velocity.y = 17.50
+    if (this.velocity.x < -17.50) this.velocity.x = -17.50
+    if (this.velocity.y < -17.50) this.velocity.y = -17.50
 
     // Collision with other enemies (circle-based elastic collision with positional correction)
     if (this.collisionCooldown > 0) {
@@ -173,7 +173,7 @@ class Enemy {
         }
 
         // impulse scalar (equal mass), restitution
-        const e = 0.4
+        const e = 1
         const j = -(1 + e) * relVelAlongNormal / 2
         const impulseX = j * nx
         const impulseY = j * ny
@@ -190,13 +190,13 @@ class Enemy {
   }
 
   move() {
-    // Don't move for 1.5 seconds after spawning (90 frames at 60fps)
+    // Don't move for 1.0 seconds after spawning (60 frames at 60fps)
     if (frames - this.spawnTime < 60) {
       return
     }
 
     // Separation: steer away from nearby enemies to avoid crowding
-    const avoidRadius = 40
+    const avoidRadius = 0
     let ax = 0
     let ay = 0
     let count = 0
@@ -343,15 +343,15 @@ function animate() {
   }
 
   if (keys.d.pressed) {
-    player.velocity.x += 0.5
+    player.velocity.x += 1
   } else if (keys.a.pressed) {
-    player.velocity.x += -0.5
+    player.velocity.x += -1
   }
 
   if (keys.s.pressed) {
-    player.velocity.y += 0.5
+    player.velocity.y += 1
   } else if (keys.w.pressed) {
-    player.velocity.y += -0.5
+    player.velocity.y += -1
   }
 
   if (player.velocity.x > 15) player.velocity.x = 15
