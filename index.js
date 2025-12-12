@@ -1,7 +1,9 @@
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
 let frames = 0
-let spawnRate = 200
+let spawnRate = 240 // 4 seconds at 60fps
+let lastDespawnTime = 0 // Track when the last enemy was despawned
+let lastLifeGainTime = 0 // Track when the last life was gained
 
 bgcolor = 'white'
 
@@ -87,14 +89,14 @@ class Enemy {
     // Apply sliding/momentum deceleration
     if (this.velocity.x !== 0) {
       if (this.velocity.x < 0) {
-        this.velocity.x += 0.25
-      } else this.velocity.x -= 0.25
+        this.velocity.x += 0.15
+      } else this.velocity.x -= 0.15
     }
 
     if (this.velocity.y !== 0) {
       if (this.velocity.y < 0) {
-        this.velocity.y += 0.25
-      } else this.velocity.y -= 0.25
+        this.velocity.y += 0.15
+      } else this.velocity.y -= 0.15
     }
 
     // Wall bouncing with 0.75 speed
@@ -111,10 +113,10 @@ class Enemy {
     }
 
     // Max speed limits (0.9 of player's max speed of 15)
-    if (this.velocity.x > 13.5) this.velocity.x = 13.5
-    if (this.velocity.y > 13.5) this.velocity.y = 13.5
-    if (this.velocity.x < -13.5) this.velocity.x = -13.5
-    if (this.velocity.y < -13.5) this.velocity.y = -13.5
+    if (this.velocity.x > 14.25) this.velocity.x = 14.25
+    if (this.velocity.y > 14.25) this.velocity.y = 14.25
+    if (this.velocity.x < -14.25) this.velocity.x = -14.25
+    if (this.velocity.y < -14.25) this.velocity.y = -14.25
 
     // Collision with other enemies (circle-based elastic collision with positional correction)
     if (this.collisionCooldown > 0) {
@@ -225,12 +227,17 @@ class Enemy {
       this.velocity.y += ay * avoidForce
     }
 
-    // Add acceleration towards target (momentum)
-    if (this.position.x > this.target.position.x) {
+    // Predict where the player will be based on their velocity
+    const predictionFrames = 15 // Look ahead 15 frames
+    const predictedX = this.target.position.x + this.target.velocity.x * predictionFrames
+    const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
+
+    // Add acceleration towards predicted target position
+    if (this.position.x > predictedX) {
       this.velocity.x += -0.3
     } else this.velocity.x += 0.3
 
-    if (this.position.y > this.target.position.y) {
+    if (this.position.y > predictedY) {
       this.velocity.y += -0.3
     } else this.velocity.y += 0.3
   }
@@ -260,12 +267,19 @@ class Projectile {
 }
 
 function collision({ object1, object2 }) {
-  return (
-    object1.position.y + object1.height >= object2.position.y &&
-    object1.position.y <= object2.position.y + object2.height &&
-    object1.position.x <= object2.position.x + object2.height &&
-    object1.position.x + object1.width >= object2.position.x
-  )
+  // Use circle-based collision for better hit detection
+  const r1 = object1.width / 2
+  const r2 = object2.width / 2
+  const cx1 = object1.position.x + r1
+  const cy1 = object1.position.y + r1
+  const cx2 = object2.position.x + r2
+  const cy2 = object2.position.y + r2
+
+  const dx = cx2 - cx1
+  const dy = cy2 - cy1
+  const distance = Math.sqrt(dx * dx + dy * dy)
+
+  return distance < r1 + r2
 }
 
 const player = new Player({
@@ -296,16 +310,36 @@ function animate() {
     if (enemy.health <= 0) enemies.splice(index, 1)
   }
 
+  // Despawn the oldest enemy every 12 seconds (720 frames at 60fps)
+  if (frames - lastDespawnTime > 720 && enemies.length > 0) {
+    let oldestEnemy = enemies[0]
+    let oldestIndex = 0
+    for (let i = 1; i < enemies.length; i++) {
+      if (enemies[i].spawnTime < oldestEnemy.spawnTime) {
+        oldestEnemy = enemies[i]
+        oldestIndex = i
+      }
+    }
+    enemies.splice(oldestIndex, 1)
+    lastDespawnTime = frames
+  }
+
+  // Gain 1 life every 24 seconds (1440 frames at 60fps)
+  if (frames - lastLifeGainTime > 1440) {
+    player.health += 1
+    lastLifeGainTime = frames
+  }
+
   if (player.velocity.x !== 0) {
     if (player.velocity.x < 0) {
-      player.velocity.x += 0.25
-    } else player.velocity.x -= 0.25
+      player.velocity.x += 0.30
+    } else player.velocity.x -= 0.30
   }
 
   if (player.velocity.y !== 0) {
     if (player.velocity.y < 0) {
-      player.velocity.y += 0.25
-    } else player.velocity.y -= 0.25
+      player.velocity.y += 0.30
+    } else player.velocity.y -= 0.30
   }
 
   if (keys.d.pressed) {
@@ -341,20 +375,41 @@ function animate() {
     let validSpawn = false
     let spawnPos = {}
     const minDistance = canvas.width * 0.3
+    const enemySize = 50
+    const buffer = 10 // buffer from walls
+    let attempts = 0
+    const maxAttempts = 100
 
-    // Keep trying to spawn until we find a valid position outside the safe zone
-    while (!validSpawn) {
+    // Keep trying to spawn until we find a valid position outside the safe zone and away from walls/other enemies
+    while (!validSpawn && attempts < maxAttempts) {
+      attempts++
       spawnPos = {
-        x: Math.floor(Math.random() * canvas.width),
-        y: Math.floor(Math.random() * canvas.height)
+        x: Math.floor(Math.random() * (canvas.width - enemySize - 2 * buffer) + buffer),
+        y: Math.floor(Math.random() * (canvas.height - enemySize - 2 * buffer) + buffer)
       }
 
-      // Calculate distance from player
-      const dx = spawnPos.x - (player.position.x + player.height / 2)
-      const dy = spawnPos.y - (player.position.y + player.width / 2)
+      // Calculate distance from player center
+      const dx = spawnPos.x + enemySize / 2 - (player.position.x + player.height / 2)
+      const dy = spawnPos.y + enemySize / 2 - (player.position.y + player.width / 2)
       const distance = Math.sqrt(dx * dx + dy * dy)
 
-      if (distance >= minDistance) {
+      // Check if far enough from player
+      if (distance < minDistance) continue
+
+      // Check if far enough from other enemies
+      let tooClose = false
+      for (let i = 0; i < enemies.length; i++) {
+        const enemy = enemies[i]
+        const edx = spawnPos.x + enemySize / 2 - (enemy.position.x + enemy.width / 2)
+        const edy = spawnPos.y + enemySize / 2 - (enemy.position.y + enemy.width / 2)
+        const eDist = Math.sqrt(edx * edx + edy * edy)
+        if (eDist < enemySize + 20) {
+          tooClose = true
+          break
+        }
+      }
+
+      if (!tooClose) {
         validSpawn = true
       }
     }
