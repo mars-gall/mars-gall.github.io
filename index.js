@@ -332,26 +332,26 @@ function animate() {
 
   if (player.velocity.x !== 0) {
     if (player.velocity.x < 0) {
-      player.velocity.x += 0.2
-    } else player.velocity.x -= 0.2
+      player.velocity.x += 0.1
+    } else player.velocity.x -= 0.1
   }
 
   if (player.velocity.y !== 0) {
     if (player.velocity.y < 0) {
-      player.velocity.y += 0.= 0.2
-    } else player.velocity.y -= 0.2
+      player.velocity.y += 0.= 0.1
+    } else player.velocity.y -= 0.1
   }
 
   if (keys.d.pressed) {
-    player.velocity.x += 2
+    player.velocity.x += 2.5
   } else if (keys.a.pressed) {
-    player.velocity.x += -2
+    player.velocity.x += -2.5
   }
 
   if (keys.s.pressed) {
-    player.velocity.y += 2
+    player.velocity.y += 2.5
   } else if (keys.w.pressed) {
-    player.velocity.y += -2
+    player.velocity.y += -2.5
   }
 
   if (player.velocity.x > 30) player.velocity.x = 30
