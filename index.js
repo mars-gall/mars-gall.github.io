@@ -89,14 +89,14 @@ class Enemy {
     // Apply sliding/momentum deceleration
     if (this.velocity.x !== 0) {
       if (this.velocity.x < 0) {
-        this.velocity.x += 0.15
-      } else this.velocity.x -= 0.15
+        this.velocity.x += 0.0
+      } else this.velocity.x -= 0.0
     }
 
     if (this.velocity.y !== 0) {
       if (this.velocity.y < 0) {
-        this.velocity.y += 0.15
-      } else this.velocity.y -= 0.15
+        this.velocity.y += 0.0
+      } else this.velocity.y -= 0.0
     }
 
     // Wall bouncing with 0.75 speed
@@ -332,14 +332,14 @@ function animate() {
 
   if (player.velocity.x !== 0) {
     if (player.velocity.x < 0) {
-      player.velocity.x += 0.1
-    } else player.velocity.x -= 0.1
+      player.velocity.x += 0
+    } else player.velocity.x -= 0
   }
 
   if (player.velocity.y !== 0) {
     if (player.velocity.y < 0) {
-      player.velocity.y += 0.= 0.1
-    } else player.velocity.y -= 0.1
+      player.velocity.y += 0.= 0
+    } else player.velocity.y -= 0
   }
 
   if (keys.d.pressed) {
