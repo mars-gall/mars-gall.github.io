@@ -2,38 +2,30 @@ const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
 let frames = 0
 let spawnRate = 240 // 4 seconds at 60fps
-let lastDespawnTime = 0 // Track when the last enemy was despawned
-let lastLifeGainTime = 0 // Track when the last life was gained
-
-bgcolor = 'white'
+let lastDespawnTime = 0
+let lastLifeGainTime = 0
+let gameStarted = false
 
 canvas.width = 1024
 canvas.height = 576
+let bgcolor = 'white'
 
 class Player {
-  constructor({
-    position,
-    height,
-    width,
-    health
-  }) {
+  constructor({ position, height, width, health }) {
     this.position = position
     this.height = height
     this.width = width
     this.health = health
-    this.velocity = {
-      x: 0,
-      y: 0
-    }
+    this.velocity = { x: 0, y: 0 }
   }
 
   draw() {
     c.fillStyle = 'rgba(14, 127, 22, 1)'
     c.fillRect(this.position.x, this.position.y, this.height, this.width)
-    c.font = '50px Serif'
-    c.fillText('Lives: ' + String(this.health), 50, 50)
+    c.font = '30px Serif'
     c.fillStyle = 'black'
-    c.fillText('You', this.position.x, this.position.y + this.height, 50)
+    c.fillText('Lives: ' + this.health, 20, 40)
+    c.fillText('You', this.position.x, this.position.y + this.height)
   }
 
   update() {
@@ -44,27 +36,16 @@ class Player {
 }
 
 class Enemy {
-  constructor({
-    position,
-    height,
-    width,
-    target,
-    health,
-    color = 'rgba(119, 0, 0, 1)'
-  }) {
+  constructor({ position, height, width, target, health, color = 'rgba(119,0,0,1)' }) {
     this.position = position
     this.height = height
     this.width = width
     this.target = target
     this.health = health
     this.color = color
-    this.isDead = false
     this.spawnTime = frames
     this.collisionCooldown = 0
-    this.velocity = {
-      x: 0,
-      y: 0
-    }
+    this.velocity = { x: 0, y: 0 }
   }
 
   draw() {
@@ -78,168 +59,34 @@ class Enemy {
     this.position.x += this.velocity.x
     this.position.y += this.velocity.y
 
-    if (collision({
-      object1: player,
-      object2: this
-    })) {
+    // Collision with player
+    if (collision({ object1: player, object2: this })) {
       player.health -= 1
       this.health -= 1
+      lastDespawnTime = frames // reset despawn timer on collision
     }
 
-    // Apply sliding/momentum deceleration
-    if (this.velocity.x !== 0) {
-      if (this.velocity.x < 0) {
-        this.velocity.x += 0.15
-      } else this.velocity.x -= 0.15
-    }
+    // Velocity deceleration
+    this.velocity.x *= 0.95
+    this.velocity.y *= 0.95
 
-    if (this.velocity.y !== 0) {
-      if (this.velocity.y < 0) {
-        this.velocity.y += 0.15
-      } else this.velocity.y -= 0.15
-    }
-
-    // Wall bouncing with 0.75 speed
-    if (this.position.x + this.velocity.x <= 0 ||
-      this.position.x + this.height + this.velocity.x >= canvas.width
-    ) {
-      this.velocity.x *= -0.85
-    }
-
-    if (this.position.y + this.velocity.y <= 0 ||
-      this.position.y + this.width + this.velocity.y >= canvas.height
-    ) {
-      this.velocity.y *= -0.85
-    }
-
-    // Max speed limits (0.9 of player's max speed of 15)
-    if (this.velocity.x > 14.00) this.velocity.x = 14.0
-    if (this.velocity.y > 14.00) this.velocity.y = 14.0
-    if (this.velocity.x < -14.00) this.velocity.x = -14.0
-    if (this.velocity.y < -14.00) this.velocity.y = -14.0
-
-    // Collision with other enemies (circle-based elastic collision with positional correction)
-    if (this.collisionCooldown > 0) {
-      this.collisionCooldown--
-    }
-
-    // Only handle each pair once: process collisions with enemies having a higher index
-    const myIndex = enemies.indexOf(this)
-    for (let i = myIndex + 1; i < enemies.length; i++) {
-      const other = enemies[i]
-      if (!other) continue
-      if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
-
-      // treat enemies as circles
-      const r1 = this.width / 2
-      const r2 = other.width / 2
-      const cx1 = this.position.x + r1
-      const cy1 = this.position.y + r1
-      const cx2 = other.position.x + r2
-      const cy2 = other.position.y + r2
-
-      const dx = cx2 - cx1
-      const dy = cy2 - cy1
-      const dist = Math.hypot(dx, dy)
-      const radii = r1 + r2
-
-      if (dist === 0) {
-        // jitter slightly to avoid zero-distance
-        dx = 1
-        dy = 0
-      }
-
-      if (dist < radii) {
-        // positional correction: push them apart along the collision normal
-        const nx = dx / (dist || 1)
-        const ny = dy / (dist || 1)
-        const overlap = radii - dist
-        const correction = overlap / 2
-        this.position.x -= nx * correction
-        this.position.y -= ny * correction
-        other.position.x += nx * correction
-        other.position.y += ny * correction
-
-        // relative velocity
-        const rvx = other.velocity.x - this.velocity.x
-        const rvy = other.velocity.y - this.velocity.y
-        const relVelAlongNormal = rvx * nx + rvy * ny
-
-        // if velocities are separating, skip impulse
-        if (relVelAlongNormal > 0) {
-          this.collisionCooldown = 10
-          other.collisionCooldown = 10
-          continue
-        }
-
-        // impulse scalar (equal mass), restitution
-        const e = 0.4
-        const j = -(1 + e) * relVelAlongNormal / 2
-        const impulseX = j * nx
-        const impulseY = j * ny
-
-        this.velocity.x -= impulseX
-        this.velocity.y -= impulseY
-        other.velocity.x += impulseX
-        other.velocity.y += impulseY
-
-        this.collisionCooldown = 15
-        other.collisionCooldown = 15
-      }
-    }
+    // Wall bouncing
+    if (this.position.x <= 0 || this.position.x + this.height >= canvas.width) this.velocity.x *= -0.85
+    if (this.position.y <= 0 || this.position.y + this.width >= canvas.height) this.velocity.y *= -0.85
   }
 
   move() {
-    // Don't move for 1.5 seconds after spawning (90 frames at 60fps)
-    if (frames - this.spawnTime < 60) {
-      return
-    }
+    if (frames - this.spawnTime < 60) return // pause 1 sec after spawn
+    const cx = this.position.x + this.width/2
+    const cy = this.position.y + this.width/2
+    const targetX = this.target.position.x + this.target.width/2
+    const targetY = this.target.position.y + this.target.height/2
 
-    // Separation: steer away from nearby enemies to avoid crowding
-    const avoidRadius = 40
-    let ax = 0
-    let ay = 0
-    let count = 0
-    const cx = this.position.x + this.width / 2
-    const cy = this.position.y + this.width / 2
+    if (cx > targetX) this.velocity.x -= 0.3
+    else this.velocity.x += 0.3
 
-    for (let i = 0; i < enemies.length; i++) {
-      const other = enemies[i]
-      if (other === this) continue
-      const ox = other.position.x + other.width / 2
-      const oy = other.position.y + other.width / 2
-      const dx = cx - ox
-      const dy = cy - oy
-      const dist = Math.hypot(dx, dy)
-      if (dist > 0 && dist < avoidRadius) {
-        const strength = (avoidRadius - dist) / avoidRadius
-        ax += (dx / dist) * strength
-        ay += (dy / dist) * strength
-        count++
-      }
-    }
-
-    if (count > 0) {
-      ax /= count
-      ay /= count
-      const avoidForce = 0.2
-      this.velocity.x += ax * avoidForce
-      this.velocity.y += ay * avoidForce
-    }
-
-    // Predict where the player will be based on their velocity
-    const predictionFrames = 15 // Look ahead 15 frames
-    const predictedX = this.target.position.x + this.target.velocity.x * predictionFrames
-    const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
-
-    // Add acceleration towards predicted target position
-    if (this.position.x > predictedX) {
-      this.velocity.x += -0.3
-    } else this.velocity.x += 0.3
-
-    if (this.position.y > predictedY) {
-      this.velocity.y += -0.3
-    } else this.velocity.y += 0.3
+    if (cy > targetY) this.velocity.y -= 0.3
+    else this.velocity.y += 0.3
   }
 }
 
@@ -254,251 +101,153 @@ class Projectile {
 
   draw() {
     c.beginPath()
-    c.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false)
+    c.arc(this.x, this.y, this.radius, 0, Math.PI*2)
     c.fillStyle = this.color
     c.fill()
   }
 
   update() {
     this.draw()
-    this.x = this.x + this.velocity.x
-    this.y = this.y + this.velocity.y
+    this.x += this.velocity.x
+    this.y += this.velocity.y
   }
 }
 
 function collision({ object1, object2 }) {
-  // Use circle-based collision for better hit detection
-  const r1 = object1.width / 2
-  const r2 = object2.width / 2
-  const cx1 = object1.position.x + r1
-  const cy1 = object1.position.y + r1
-  const cx2 = object2.position.x + r2
-  const cy2 = object2.position.y + r2
-
-  const dx = cx2 - cx1
-  const dy = cy2 - cy1
-  const distance = Math.sqrt(dx * dx + dy * dy)
-
-  return distance < r1 + r2
+  const r1 = object1.width/2
+  const r2 = object2.width/2
+  const dx = object2.position.x + r2 - (object1.position.x + r1)
+  const dy = object2.position.y + r2 - (object1.position.y + r1)
+  return Math.hypot(dx, dy) < r1 + r2
 }
 
-const player = new Player({
-  position: {
-    x: canvas.width / 2 - 25,
-    y: canvas.height / 2 - 25
-  },
-  height: 50,
-  width: 50,
-  health: 5
-})
-
+const player = new Player({ position: { x: canvas.width/2 - 25, y: canvas.height/2 - 25 }, height: 50, width: 50, health: 5 })
 const enemies = []
 const projectiles = []
 
+const keys = { w:{pressed:false}, a:{pressed:false}, s:{pressed:false}, d:{pressed:false} }
+
+// Start menu
+const menu = document.createElement('div')
+menu.id = 'menu'
+menu.style = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;'
+menu.innerHTML = '<h1>Canvas Game</h1><button id="startButton">Start Game</button>'
+document.body.appendChild(menu)
+const startButton = document.getElementById('startButton')
+startButton.addEventListener('click', () => { gameStarted = true; menu.style.display='none' })
+
 function animate() {
-  const animationId= requestAnimationFrame(animate)
+  const animationId = requestAnimationFrame(animate)
 
   c.fillStyle = bgcolor
   c.fillRect(0, 0, canvas.width, canvas.height)
 
-  player.update()
-
-  for (let index = enemies.length - 1; index >= 0; index--) {
-    const enemy = enemies[index]
-    
-    enemy.update()
-    if (enemy.health <= 0) enemies.splice(index, 1)
+  if (!gameStarted) {
+    c.fillStyle='black'
+    c.font='40px serif'
+    c.fillText('Press Start to Play', canvas.width/2-200, canvas.height/2)
+    return
   }
 
-  // Despawn the oldest enemy every 12 seconds (720 frames at 60fps)
-  if (frames - lastDespawnTime > 720 && enemies.length > 0) {
-    let oldestEnemy = enemies[0]
+  player.update()
+
+  // Update enemies
+  for (let i = enemies.length-1; i>=0; i--) {
+    enemies[i].update()
+    if (enemies[i].health <= 0) enemies.splice(i,1)
+  }
+
+  // Despawn oldest enemy every 12 sec
+  if (frames - lastDespawnTime > 720 && enemies.length>0) {
     let oldestIndex = 0
-    for (let i = 1; i < enemies.length; i++) {
-      if (enemies[i].spawnTime < oldestEnemy.spawnTime) {
-        oldestEnemy = enemies[i]
-        oldestIndex = i
-      }
-    }
-    enemies.splice(oldestIndex, 1)
+    for (let i=1;i<enemies.length;i++) if (enemies[i].spawnTime < enemies[oldestIndex].spawnTime) oldestIndex=i
+    enemies.splice(oldestIndex,1)
     lastDespawnTime = frames
   }
 
-  // Gain 1 life every 24 seconds (1440 frames at 60fps)
-  if (frames - lastLifeGainTime > 1440) {
-    player.health += 1
-    lastLifeGainTime = frames
-  }
+  // Gain life every 24 sec
+  if (frames - lastLifeGainTime > 1440) { player.health+=1; lastLifeGainTime=frames }
 
-  if (player.velocity.x !== 0) {
-    if (player.velocity.x < 0) {
-      player.velocity.x += 0.30
-    } else player.velocity.x -= 0.30
-  }
+  // Player movement
+  if (keys.d.pressed) player.velocity.x+=0.5
+  if (keys.a.pressed) player.velocity.x-=0.5
+  if (keys.w.pressed) player.velocity.y-=0.5
+  if (keys.s.pressed) player.velocity.y+=0.5
+  player.velocity.x *= 0.9
+  player.velocity.y *= 0.9
 
-  if (player.velocity.y !== 0) {
-    if (player.velocity.y < 0) {
-      player.velocity.y += 0.30
-    } else player.velocity.y -= 0.30
-  }
+  // Wall collisions
+  if (player.position.x <=0 || player.position.x+player.height>=canvas.width) player.velocity.x*=-0.75
+  if (player.position.y <=0 || player.position.y+player.width>=canvas.height) player.velocity.y*=-0.75
 
-  if (keys.d.pressed) {
-    player.velocity.x += 0.5
-  } else if (keys.a.pressed) {
-    player.velocity.x += -0.5
-  }
-
-  if (keys.s.pressed) {
-    player.velocity.y += 0.5
-  } else if (keys.w.pressed) {
-    player.velocity.y += -0.5
-  }
-
-  if (player.velocity.x > 15) player.velocity.x = 15
-  if (player.velocity.y > 15) player.velocity.y = 15
-  if (player.velocity.x < -15) player.velocity.x = -15
-  if (player.velocity.y < -15) player.velocity.y = -15
-
-  if (player.position.x + player.velocity.x <= 0 ||
-    player.position.x + player.height + player.velocity.x >= canvas.width
-  ) {
-    player.velocity.x *= -0.75
-  }
-
-  if (player.position.y + player.velocity.y <= 0 ||
-    player.position.y + player.width + player.velocity.y >= canvas.height
-  ) {
-    player.velocity.y *= -0.75
-  }
-
-  if (frames % spawnRate === 0) {
-    let validSpawn = false
-    let spawnPos = {}
-    const minDistance = canvas.width * 0.3
-    const enemySize = 50
-    const buffer = 10 // buffer from walls
-    let attempts = 0
-    const maxAttempts = 100
-
-    // Keep trying to spawn until we find a valid position outside the safe zone and away from walls/other enemies
-    while (!validSpawn && attempts < maxAttempts) {
+  // Spawn enemies
+  if (frames % spawnRate ===0) {
+    let buffer=10
+    let validSpawn=false
+    let spawnPos={}
+    let attempts=0
+    while(!validSpawn && attempts<100){
       attempts++
-      spawnPos = {
-        x: Math.floor(Math.random() * (canvas.width - enemySize - 2 * buffer) + buffer),
-        y: Math.floor(Math.random() * (canvas.height - enemySize - 2 * buffer) + buffer)
+      spawnPos={x:Math.floor(Math.random()*(canvas.width-50-2*buffer)+buffer), y:Math.floor(Math.random()*(canvas.height-50-2*buffer)+buffer)}
+      const dx = spawnPos.x+25-(player.position.x+25)
+      const dy = spawnPos.y+25-(player.position.y+25)
+      if(Math.hypot(dx,dy)<canvas.width*0.3) continue
+      let tooClose=false
+      for (let e of enemies){
+        if(Math.hypot(spawnPos.x+25-(e.position.x+25), spawnPos.y+25-(e.position.y+25))<70) { tooClose=true; break }
       }
-
-      // Calculate distance from player center
-      const dx = spawnPos.x + enemySize / 2 - (player.position.x + player.height / 2)
-      const dy = spawnPos.y + enemySize / 2 - (player.position.y + player.width / 2)
-      const distance = Math.sqrt(dx * dx + dy * dy)
-
-      // Check if far enough from player
-      if (distance < minDistance) continue
-
-      // Check if far enough from other enemies
-      let tooClose = false
-      for (let i = 0; i < enemies.length; i++) {
-        const enemy = enemies[i]
-        const edx = spawnPos.x + enemySize / 2 - (enemy.position.x + enemy.width / 2)
-        const edy = spawnPos.y + enemySize / 2 - (enemy.position.y + enemy.width / 2)
-        const eDist = Math.sqrt(edx * edx + edy * edy)
-        if (eDist < enemySize + 20) {
-          tooClose = true
-          break
-        }
-      }
-
-      if (!tooClose) {
-        validSpawn = true
-      }
+      if(!tooClose) validSpawn=true
     }
+    enemies.push(new Enemy({position:spawnPos,height:50,width:50,target:player,health:1,color:`rgba(${Math.floor(Math.random()*255)},0,0,1)`}))
+  }
 
-    enemies.push(new Enemy({
-      position: spawnPos,
-      height: 50,
-      width: 50,
-      target: player,
-      health: 1,
-      color: 'rgba(' + String(Math.floor(Math.random() * 255)) + ', 0, 0)'
-    }))
-
-    // if (!spawnRate <= 20) spawnRate -= 20
+  // Update projectiles
+  for (let i=projectiles.length-1;i>=0;i--){
+    projectiles[i].update()
+    if(projectiles[i].x<0 || projectiles[i].x>canvas.width || projectiles[i].y<0 || projectiles[i].y>canvas.height) projectiles.splice(i,1)
   }
 
   frames++
 
+  // Death check
   if (player.health <= 0) {
-    c.font = '50px serif'
-    c.fillStyle = 'black'
-    c.fillText('YOU DIED', 100, 100, 1000)
+    c.font='50px serif'
+    c.fillStyle='black'
+    c.fillText('YOU DIED',canvas.width/2-100,canvas.height/2)
+    menu.innerHTML='<h1>You Died</h1><button id="restartButton">Play Again</button>'
+    menu.style.display='block'
+    const restartButton = document.getElementById('restartButton')
+    restartButton.addEventListener('click', ()=>{ location.reload() })
     cancelAnimationFrame(animationId)
-  }
-}
-
-const keys = {
-  d: {
-    pressed: false,
-  },
-  a: {
-    pressed: false,
-  },
-  w: {
-    pressed: false,
-  },
-  s: {
-    pressed: false
   }
 }
 
 animate()
 
-window.addEventListener('keydown', (event) => {
-  switch (event.key) {
-    case 'd':
-      keys.d.pressed = true
-      break
-    case 'a':
-      keys.a.pressed = true
-      break
-    case 'w':
-      keys.w.pressed = true
-      break
-    case 's':
-      keys.s.pressed = true
-      break
-  }
-}
-)
-
-window.addEventListener('keyup', (event) => {
-  switch (event.key) {
-    case 'd':
-      keys.d.pressed = false
-      break
-    case 'a':
-      keys.a.pressed = false
-      break
-    case 'w':
-      keys.w.pressed = false
-      break
-    case 's':
-      keys.s.pressed = false
-      break
+// Keyboard input
+window.addEventListener('keydown', (e)=>{
+  if(!gameStarted) return
+  switch(e.key){
+    case 'd': keys.d.pressed=true; break
+    case 'a': keys.a.pressed=true; break
+    case 'w': keys.w.pressed=true; break
+    case 's': keys.s.pressed=true; break
   }
 })
 
-addEventListener('click', (event) => {
-  console.log(`click`)
-  const angle = Math.atan2(
-    event.clientY - canvas.height / 2,
-    event.clientX - canvas.width / 2
-  )
-  const velocity = {
-    x: Math.cos(angle) * 5,
-    y: Math.sin(angle) * 5
+window.addEventListener('keyup', (e)=>{
+  switch(e.key){
+    case 'd': keys.d.pressed=false; break
+    case 'a': keys.a.pressed=false; break
+    case 'w': keys.w.pressed=false; break
+    case 's': keys.s.pressed=false; break
   }
-  projectiles.push(
-    new Projectile(canvas.width / 2, canvas.height / 2, 5, 'white', velocity)
-  )
+})
+
+// Shooting projectiles
+window.addEventListener('click',(event)=>{
+  if(!gameStarted) return
+  const angle = Math.atan2(event.clientY - (player.position.y+player.height/2), event.clientX - (player.position.x+player.width/2))
+  const velocity = { x: Math.cos(angle)*5, y: Math.sin(angle)*5 }
+  projectiles.push(new Projectile(player.position.x+player.width/2, player.position.y+player.height/2,5,'white',velocity))
 })
