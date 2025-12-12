@@ -330,34 +330,27 @@ function animate() {
     lastLifeGainTime = frames
   }
 
-  if (player.velocity.x !== 0) {
-    if (player.velocity.x < 0) {
-      player.velocity.x += 0.2
-    } else player.velocity.x -= 0.2
-  }
+  // Apply friction only when no keys are pressed
+if (!keys.a.pressed && !keys.d.pressed) {
+  player.velocity.x *= 0.9; // smooth friction
+}
 
-  if (player.velocity.y !== 0) {
-    if (player.velocity.y < 0) {
-      player.velocity.y += 0.2
-    } else player.velocity.y -= 0.2
-  }
+if (!keys.w.pressed && !keys.s.pressed) {
+  player.velocity.y *= 0.9;
+}
 
-  if (keys.d.pressed) {
-    player.velocity.x += 1
-  } else if (keys.a.pressed) {
-    player.velocity.x += -1
-  }
+// Apply movement based on keys
+if (keys.d.pressed) player.velocity.x += 1;
+if (keys.a.pressed) player.velocity.x -= 1;
+if (keys.s.pressed) player.velocity.y += 1;
+if (keys.w.pressed) player.velocity.y -= 1;
 
-  if (keys.s.pressed) {
-    player.velocity.y += 1
-  } else if (keys.w.pressed) {
-    player.velocity.y += -1
-  }
+// Velocity caps (adjust as needed for smooth feel)
+const maxSpeed = 15;
+if (player.velocity.x > maxSpeed) player.velocity.x = maxSpeed;
+if (player.velocity.x < -maxSpeed) player.velocity.x = -maxSpeed;
+i
 
-  if (player.velocity.x > 20) player.velocity.x = 20
-  if (player.velocity.y > 20) player.velocity.y = 20
-  if (player.velocity.x < -20) player.velocity.x = -20
-  if (player.velocity.y < -20) player.velocity.y = -20
 
   if (player.position.x + player.velocity.x <= 0 ||
     player.position.x + player.height + player.velocity.x >= canvas.width
