@@ -103,13 +103,13 @@ class Enemy {
     if (this.position.x + this.velocity.x <= 0 ||
       this.position.x + this.height + this.velocity.x >= canvas.width
     ) {
-      this.velocity.x *= -2
+      this.velocity.x *= -0.85
     }
 
     if (this.position.y + this.velocity.y <= 0 ||
       this.position.y + this.width + this.velocity.y >= canvas.height
     ) {
-      this.velocity.y *= -2
+      this.velocity.y *= -0.85
     }
 
     // Max speed limits (0.9 of player's max speed of 15)
@@ -228,7 +228,7 @@ class Enemy {
     }
 
     // Predict where the player will be based on their velocity
-    const predictionFrames = 0 // Look ahead 0 frames
+    const predictionFrames = 15 // Look ahead 15 frames
     const predictedX = this.target.position.x + this.target.velocity.x * predictionFrames
     const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
 
@@ -330,38 +330,45 @@ function animate() {
     lastLifeGainTime = frames
   }
 
-  // Apply friction only when no keys are pressed
-if (!keys.a.pressed && !keys.d.pressed) {
-  player.velocity.x *= 0.9; // smooth friction
-}
+  if (player.velocity.x !== 0) {
+    if (player.velocity.x < 0) {
+      player.velocity.x += 0.30
+    } else player.velocity.x -= 0.30
+  }
 
-if (!keys.w.pressed && !keys.s.pressed) {
-  player.velocity.y *= 0.9;
-}
+  if (player.velocity.y !== 0) {
+    if (player.velocity.y < 0) {
+      player.velocity.y += 0.30
+    } else player.velocity.y -= 0.30
+  }
 
-// Apply movement based on keys
-if (keys.d.pressed) player.velocity.x += 1;
-if (keys.a.pressed) player.velocity.x -= 1;
-if (keys.s.pressed) player.velocity.y += 1;
-if (keys.w.pressed) player.velocity.y -= 1;
+  if (keys.d.pressed) {
+    player.velocity.x += 0.5
+  } else if (keys.a.pressed) {
+    player.velocity.x += -0.5
+  }
 
-// Velocity caps (adjust as needed for smooth feel)
-const maxSpeed = 15;
-if (player.velocity.x > maxSpeed) player.velocity.x = maxSpeed;
-if (player.velocity.x < -maxSpeed) player.velocity.x = -maxSpeed;
-i
+  if (keys.s.pressed) {
+    player.velocity.y += 0.5
+  } else if (keys.w.pressed) {
+    player.velocity.y += -0.5
+  }
 
+  if (player.velocity.x > 15) player.velocity.x = 15
+  if (player.velocity.y > 15) player.velocity.y = 15
+  if (player.velocity.x < -15) player.velocity.x = -15
+  if (player.velocity.y < -15) player.velocity.y = -15
 
   if (player.position.x + player.velocity.x <= 0 ||
     player.position.x + player.height + player.velocity.x >= canvas.width
   ) {
-    player.velocity.x *= -1
+    player.velocity.x *= -0.75
   }
 
   if (player.position.y + player.velocity.y <= 0 ||
     player.position.y + player.width + player.velocity.y >= canvas.height
   ) {
-    player.velocity.y *= -1
+    player.velocity.y *= -0.75
   }
 
   if (frames % spawnRate === 0) {
