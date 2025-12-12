@@ -332,43 +332,43 @@ function animate() {
 
   if (player.velocity.x !== 0) {
     if (player.velocity.x < 0) {
-      player.velocity.x += 0.30
-    } else player.velocity.x -= 0.30
+      player.velocity.x += 0.2
+    } else player.velocity.x -= 0.2
   }
 
   if (player.velocity.y !== 0) {
     if (player.velocity.y < 0) {
-      player.velocity.y += 0.30
-    } else player.velocity.y -= 0.30
+      player.velocity.y += 0.= 0.2
+    } else player.velocity.y -= 0.2
   }
 
   if (keys.d.pressed) {
-    player.velocity.x += 1
+    player.velocity.x += 2
   } else if (keys.a.pressed) {
-    player.velocity.x += -1
+    player.velocity.x += -2
   }
 
   if (keys.s.pressed) {
-    player.velocity.y += 1
+    player.velocity.y += 2
   } else if (keys.w.pressed) {
-    player.velocity.y += -1
+    player.velocity.y += -2
   }
 
-  if (player.velocity.x > 15) player.velocity.x = 15
-  if (player.velocity.y > 15) player.velocity.y = 15
-  if (player.velocity.x < -15) player.velocity.x = -15
-  if (player.velocity.y < -15) player.velocity.y = -15
+  if (player.velocity.x > 30) player.velocity.x = 30
+  if (player.velocity.y > 30) player.velocity.y = 30
+  if (player.velocity.x < -30) player.velocity.x = -30
+  if (player.velocity.y < -30) player.velocity.y = -30
 
   if (player.position.x + player.velocity.x <= 0 ||
     player.position.x + player.height + player.velocity.x >= canvas.width
   ) {
-    player.velocity.x *= -0.75
+    player.velocity.x *= -1
   }
 
   if (player.position.y + player.velocity.y <= 0 ||
     player.position.y + player.width + player.velocity.y >= canvas.height
   ) {
-    player.velocity.y *= -0.75
+    player.velocity.y *= -1
   }
 
   if (frames % spawnRate === 0) {
