@@ -91,14 +91,14 @@ class Enemy {
     // Apply sliding/momentum deceleration
     if (this.velocity.x !== 0) {
       if (this.velocity.x < 0) {
-        this.velocity.x += 0.0
-      } else this.velocity.x -= 0.0
+        this.velocity.x += 0.05
+      } else this.velocity.x -= 0.05
     }
 
     if (this.velocity.y !== 0) {
       if (this.velocity.y < 0) {
-        this.velocity.y += 0.0
-      } else this.velocity.y -= 0.0
+        this.velocity.y += 0.05
+      } else this.velocity.y -= 0.05
     }
 
     // Wall bouncing with 0.75 speed
