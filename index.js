@@ -1,3 +1,4 @@
+// --- Initial Setup ---
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
 let frames = 0
@@ -6,11 +7,40 @@ let lastDespawnTime = 0 // Track when the last enemy was despawned
 let lastLifeGainTime = 0 // Track when the last life was gained
 let bgcolor = 'white'
 
-
-bgcolor = 'white'
-
 canvas.width = 1024
 canvas.height = 576
+
+// --- Utility Functions ---
+
+function collision({ object1, object2 }) {
+  // Use circle-based collision for better hit detection
+  const r1 = object1.width / 2
+  const r2 = object2.width / 2
+  const cx1 = object1.position.x + r1
+  const cy1 = object1.position.y + r1
+  const cx2 = object2.position.x + r2
+  const cy2 = object2.position.y + r2
+
+  const dx = cx2 - cx1
+  const dy = cy2 - cy1
+  const distance = Math.sqrt(dx * dx + dy * dy)
+
+  return distance < r1 + r2
+}
+
+// Custom collision for Projectile (Circle) vs Enemy (Rectangle/Circle-treated)
+function projectileEnemyCollision(projectile, enemy) {
+  const enemyCenterX = enemy.position.x + enemy.width / 2
+  const enemyCenterY = enemy.position.y + enemy.height / 2
+  
+  const dx = projectile.x - enemyCenterX
+  const dy = projectile.y - enemyCenterY
+  const distance = Math.hypot(dx, dy)
+  
+  return distance < projectile.radius + enemy.width / 2
+}
+
+// --- Classes ---
 
 class Player {
   constructor({
@@ -33,9 +63,11 @@ class Player {
     c.fillStyle = 'rgba(14, 127, 22, 1)'
     c.fillRect(this.position.x, this.position.y, this.height, this.width)
     c.font = '50px Serif'
+    c.fillStyle = 'black' // Set color before drawing text
     c.fillText('Lives: ' + String(this.health), 50, 50)
-    c.fillStyle = 'black'
-    c.fillText('You', this.position.x, this.position.y + this.height, 50)
+    
+    // Draw "You" text
+    c.fillText('You', this.position.x, this.position.y + this.height + 10) // +10 to place it below
   }
 
   update() {
@@ -76,49 +108,57 @@ class Enemy {
 
   update() {
     this.move()
-    this.draw()
-    this.position.x += this.velocity.x
-    this.position.y += this.velocity.y
-
-    if (collision({
+    
+    // Check for Player collision before applying movement to prevent overlap issues
+    if (this.collisionCooldown === 0 && collision({
       object1: player,
       object2: this
     })) {
       player.health -= 1
-      this.health -= 1
+      this.health = 0 // Enemy dies on contact
+      this.collisionCooldown = 15 // Apply cooldown to player to prevent instant multiple hits
     }
 
-    // Apply sliding/momentum deceleration
-    if (this.velocity.x !== 0) {
-      if (this.velocity.x < 0) {
-        this.velocity.x += 0.05
-      } else this.velocity.x -= 0.05
+    // Apply movement after potential collision check
+    this.position.x += this.velocity.x
+    this.position.y += this.velocity.y
+    this.draw()
+
+
+    // Apply sliding/momentum deceleration (FIXED: changed 0.0 to 0.1)
+    const enemyDeceleration = 0.1
+    if (Math.abs(this.velocity.x) > 0) {
+      this.velocity.x += (this.velocity.x < 0 ? enemyDeceleration : -enemyDeceleration)
+      // Stop completely if the speed is very low
+      if (Math.abs(this.velocity.x) < enemyDeceleration) this.velocity.x = 0
     }
 
-    if (this.velocity.y !== 0) {
-      if (this.velocity.y < 0) {
-        this.velocity.y += 0.05
-      } else this.velocity.y -= 0.05
+    if (Math.abs(this.velocity.y) > 0) {
+      this.velocity.y += (this.velocity.y < 0 ? enemyDeceleration : -enemyDeceleration)
+      if (Math.abs(this.velocity.y) < enemyDeceleration) this.velocity.y = 0
     }
+
 
     // Wall bouncing with 0.75 speed
+    // Use the actual height/width of the enemy when checking bounds
     if (this.position.x + this.velocity.x <= 0 ||
-      this.position.x + this.height + this.velocity.x >= canvas.width
+      this.position.x + this.width + this.velocity.x >= canvas.width // Use 'width' for horizontal bounds
     ) {
-      this.velocity.x *= -2
+      this.velocity.x *= -0.75 // Adjusted bounce force to 0.75 for realism
     }
 
     if (this.position.y + this.velocity.y <= 0 ||
-      this.position.y + this.width + this.velocity.y >= canvas.height
+      this.position.y + this.height + this.velocity.y >= canvas.height // Use 'height' for vertical bounds
     ) {
-      this.velocity.y *= -2
+      this.velocity.y *= -0.75 // Adjusted bounce force to 0.75 for realism
     }
 
-    // Max speed limits (0.9 of player's max speed of 15)
-    if (this.velocity.x > 17.50) this.velocity.x = 17.50
-    if (this.velocity.y > 17.50) this.velocity.y = 17.50
-    if (this.velocity.x < -17.50) this.velocity.x = -17.50
-    if (this.velocity.y < -17.50) this.velocity.y = -17.50
+    // Max speed limits (0.9 of player's max speed of 30, so 27)
+    const maxEnemySpeed = 27
+    if (this.velocity.x > maxEnemySpeed) this.velocity.x = maxEnemySpeed
+    if (this.velocity.y > maxEnemySpeed) this.velocity.y = maxEnemySpeed
+    if (this.velocity.x < -maxEnemySpeed) this.velocity.x = -maxEnemySpeed
+    if (this.velocity.y < -maxEnemySpeed) this.velocity.y = -maxEnemySpeed
 
     // Collision with other enemies (circle-based elastic collision with positional correction)
     if (this.collisionCooldown > 0) {
@@ -142,19 +182,18 @@ class Enemy {
 
       const dx = cx2 - cx1
       const dy = cy2 - cy1
-      const dist = Math.hypot(dx, dy)
+      let dist = Math.hypot(dx, dy)
       const radii = r1 + r2
 
       if (dist === 0) {
         // jitter slightly to avoid zero-distance
-        dx = 1
-        dy = 0
+        dist = 1
       }
 
       if (dist < radii) {
         // positional correction: push them apart along the collision normal
-        const nx = dx / (dist || 1)
-        const ny = dy / (dist || 1)
+        const nx = dx / dist
+        const ny = dy / dist
         const overlap = radii - dist
         const correction = overlap / 2
         this.position.x -= nx * correction
@@ -197,8 +236,8 @@ class Enemy {
       return
     }
 
-    // Separation: steer away from nearby enemies to avoid crowding
-    const avoidRadius = 0
+    // Separation: steer away from nearby enemies to avoid crowding (avoidRadius set to 100)
+    const avoidRadius = 100
     let ax = 0
     let ay = 0
     let count = 0
@@ -214,7 +253,8 @@ class Enemy {
       const dy = cy - oy
       const dist = Math.hypot(dx, dy)
       if (dist > 0 && dist < avoidRadius) {
-        const strength = (avoidRadius - dist) / avoidRadius
+        // Inverse distance strength: stronger force when closer
+        const strength = 1 - (dist / avoidRadius) 
         ax += (dx / dist) * strength
         ay += (dy / dist) * strength
         count++
@@ -229,19 +269,24 @@ class Enemy {
       this.velocity.y += ay * avoidForce
     }
 
-    // Predict where the player will be based on their velocity
+    // Prediction: Enemy tracks player movement
     const predictionFrames = 15 // Look ahead 15 frames
     const predictedX = this.target.position.x + this.target.velocity.x * predictionFrames
     const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
 
     // Add acceleration towards predicted target position
+    const followForce = 0.3
     if (this.position.x > predictedX) {
-      this.velocity.x += -0.3
-    } else this.velocity.x += 0.3
+      this.velocity.x -= followForce
+    } else {
+      this.velocity.x += followForce
+    }
 
     if (this.position.y > predictedY) {
-      this.velocity.y += -0.3
-    } else this.velocity.y += 0.3
+      this.velocity.y -= followForce
+    } else {
+      this.velocity.y += followForce
+    }
   }
 }
 
@@ -268,21 +313,7 @@ class Projectile {
   }
 }
 
-function collision({ object1, object2 }) {
-  // Use circle-based collision for better hit detection
-  const r1 = object1.width / 2
-  const r2 = object2.width / 2
-  const cx1 = object1.position.x + r1
-  const cy1 = object1.position.y + r1
-  const cx2 = object2.position.x + r2
-  const cy2 = object2.position.y + r2
-
-  const dx = cx2 - cx1
-  const dy = cy2 - cy1
-  const distance = Math.sqrt(dx * dx + dy * dy)
-
-  return distance < r1 + r2
-}
+// --- Game Objects and Initialization (MOVED UP FOR CORRECT EXECUTION) ---
 
 const player = new Player({
   position: {
@@ -297,20 +328,76 @@ const player = new Player({
 const enemies = []
 const projectiles = []
 
-function animate() {
-  const animationId= requestAnimationFrame(animate)
+// FIXED: MOVED KEYS UP SO ANIMATE CAN ACCESS THEM
+const keys = {
+  d: {
+    pressed: false,
+  },
+  a: {
+    pressed: false,
+  },
+  w: {
+    pressed: false,
+  },
+  s: {
+    pressed: false
+  }
+}
 
+// --- Main Animation Loop ---
+
+function animate() {
+  const animationId = requestAnimationFrame(animate)
+
+  // Clear canvas
   c.fillStyle = bgcolor
   c.fillRect(0, 0, canvas.width, canvas.height)
 
+  // Player Update
   player.update()
 
+  // Projectile Update and Cleanup (FIXED: ADDED)
+  for (let index = projectiles.length - 1; index >= 0; index--) {
+    const projectile = projectiles[index]
+    projectile.update()
+
+    // Remove projectiles that go off-screen
+    if (
+      projectile.x + projectile.radius < 0 ||
+      projectile.x - projectile.radius > canvas.width ||
+      projectile.y + projectile.radius < 0 ||
+      projectile.y - projectile.radius > canvas.height
+    ) {
+      projectiles.splice(index, 1)
+      continue // Skip to next projectile
+    }
+  }
+
+  // Enemy Update, Player Collision, and Projectile Collision (FIXED: ADDED PROJECTILE COLLISION)
   for (let index = enemies.length - 1; index >= 0; index--) {
     const enemy = enemies[index]
     
-    enemy.update()
-    if (enemy.health <= 0) enemies.splice(index, 1)
+    // Check collision against all projectiles for this enemy
+    for (let pIndex = projectiles.length - 1; pIndex >= 0; pIndex--) {
+      const projectile = projectiles[pIndex]
+
+      if (projectileEnemyCollision(projectile, enemy)) {
+        // Projectile hit the enemy
+        enemy.health -= 1 // Enemy takes damage
+        projectiles.splice(pIndex, 1) // Remove projectile
+      }
+    }
+    
+    // Update enemy movement and internal state (includes player collision check and inter-enemy collision)
+    enemy.update() 
+    
+    // Check if enemy is dead after update and collisions
+    if (enemy.health <= 0) {
+      enemies.splice(index, 1)
+    }
   }
+
+  // --- Game State Management ---
 
   // Despawn the oldest enemy every 12 seconds (720 frames at 60fps)
   if (frames - lastDespawnTime > 720 && enemies.length > 0) {
@@ -332,58 +419,63 @@ function animate() {
     lastLifeGainTime = frames
   }
 
-if (player.velocity.x !== 0) {
-  if (player.velocity.x < 0) {
-    player.velocity.x += 0.4
-  } else player.velocity.x -= 0.4
-}
+  // --- Player Physics/Movement ---
+  
+  const friction = 0.4
+  if (Math.abs(player.velocity.x) > 0) {
+    player.velocity.x += (player.velocity.x < 0 ? friction : -friction)
+    if (Math.abs(player.velocity.x) < friction) player.velocity.x = 0 // Stop if below friction threshold
+  }
 
-if (player.velocity.y !== 0) {
-  if (player.velocity.y < 0) {
-    player.velocity.y += 0.4
-  } else player.velocity.y -= 0.4
-}
+  if (Math.abs(player.velocity.y) > 0) {
+    player.velocity.y += (player.velocity.y < 0 ? friction : -friction)
+    if (Math.abs(player.velocity.y) < friction) player.velocity.y = 0 // Stop if below friction threshold
+  }
 
-
+  const acceleration = 1.0
   if (keys.d.pressed) {
-    player.velocity.x += 1
-  } else if (keys.a.pressed) {
-    player.velocity.x += -1
+    player.velocity.x += acceleration
+  } 
+  if (keys.a.pressed) {
+    player.velocity.x -= acceleration
   }
 
   if (keys.s.pressed) {
-    player.velocity.y += 1
-  } else if (keys.w.pressed) {
-    player.velocity.y += -1
+    player.velocity.y += acceleration
+  } 
+  if (keys.w.pressed) {
+    player.velocity.y -= acceleration
   }
 
-  if (player.velocity.x > 30) player.velocity.x = 30
-  if (player.velocity.y > 30) player.velocity.y = 30
-  if (player.velocity.x < -30) player.velocity.x = -30
-  if (player.velocity.y < -30) player.velocity.y = -30
+  const maxPlayerSpeed = 15 // Reduced max speed from 30 to 15 for better control
+  if (player.velocity.x > maxPlayerSpeed) player.velocity.x = maxPlayerSpeed
+  if (player.velocity.y > maxPlayerSpeed) player.velocity.y = maxPlayerSpeed
+  if (player.velocity.x < -maxPlayerSpeed) player.velocity.x = -maxPlayerSpeed
+  if (player.velocity.y < -maxPlayerSpeed) player.velocity.y = -maxPlayerSpeed
 
+  // Wall bouncing
   if (player.position.x + player.velocity.x <= 0 ||
-    player.position.x + player.height + player.velocity.x >= canvas.width
+    player.position.x + player.width + player.velocity.x >= canvas.width
   ) {
     player.velocity.x *= -1
   }
 
   if (player.position.y + player.velocity.y <= 0 ||
-    player.position.y + player.width + player.velocity.y >= canvas.height
+    player.position.y + player.height + player.velocity.y >= canvas.height
   ) {
     player.velocity.y *= -1
   }
 
+  // --- Enemy Spawning ---
   if (frames % spawnRate === 0) {
     let validSpawn = false
-    let spawnPos = {}
+    let spawnPos = { x: 0, y: 0 } // Initialize spawnPos
     const minDistance = canvas.width * 0.3
     const enemySize = 50
     const buffer = 10 // buffer from walls
     let attempts = 0
     const maxAttempts = 100
 
-    // Keep trying to spawn until we find a valid position outside the safe zone and away from walls/other enemies
     while (!validSpawn && attempts < maxAttempts) {
       attempts++
       spawnPos = {
@@ -392,8 +484,8 @@ if (player.velocity.y !== 0) {
       }
 
       // Calculate distance from player center
-      const dx = spawnPos.x + enemySize / 2 - (player.position.x + player.height / 2)
-      const dy = spawnPos.y + enemySize / 2 - (player.position.y + player.width / 2)
+      const dx = spawnPos.x + enemySize / 2 - (player.position.x + player.width / 2)
+      const dy = spawnPos.y + enemySize / 2 - (player.position.y + player.height / 2)
       const distance = Math.sqrt(dx * dx + dy * dy)
 
       // Check if far enough from player
@@ -404,7 +496,7 @@ if (player.velocity.y !== 0) {
       for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i]
         const edx = spawnPos.x + enemySize / 2 - (enemy.position.x + enemy.width / 2)
-        const edy = spawnPos.y + enemySize / 2 - (enemy.position.y + enemy.width / 2)
+        const edy = spawnPos.y + enemySize / 2 - (enemy.position.y + enemy.height / 2)
         const eDist = Math.sqrt(edx * edx + edy * edy)
         if (eDist < enemySize + 20) {
           tooClose = true
@@ -416,45 +508,35 @@ if (player.velocity.y !== 0) {
         validSpawn = true
       }
     }
+    
+    // Only spawn if a valid position was found
+    if (validSpawn) {
+      enemies.push(new Enemy({
+        position: spawnPos,
+        height: enemySize,
+        width: enemySize,
+        target: player,
+        health: 1,
+        color: 'rgba(' + String(Math.floor(Math.random() * 255)) + ', 0, 0)'
+      }))
+    }
 
-    enemies.push(new Enemy({
-      position: spawnPos,
-      height: 50,
-      width: 50,
-      target: player,
-      health: 1,
-      color: 'rgba(' + String(Math.floor(Math.random() * 255)) + ', 0, 0)'
-    }))
-
-    // if (!spawnRate <= 20) spawnRate -= 20
+    // if (spawnRate > 20) spawnRate -= 2; // Fixed syntax and reduced speed up
   }
 
   frames++
 
+  // Game Over
   if (player.health <= 0) {
-    c.font = '50px serif'
-    c.fillStyle = 'black'
-    c.fillText('YOU DIED', 100, 100, 1000)
+    c.font = '72px sans-serif'
+    c.fillStyle = 'red'
+    c.textAlign = 'center'
+    c.fillText('GAME OVER', canvas.width / 2, canvas.height / 2)
     cancelAnimationFrame(animationId)
   }
 }
 
-const keys = {
-  d: {
-    pressed: false,
-  },
-  a: {
-    pressed: false,
-  },
-  w: {
-    pressed: false,
-  },
-  s: {
-    pressed: false
-  }
-}
-
-animate()
+// --- Event Listeners ---
 
 window.addEventListener('keydown', (event) => {
   switch (event.key) {
@@ -471,8 +553,7 @@ window.addEventListener('keydown', (event) => {
       keys.s.pressed = true
       break
   }
-}
-)
+})
 
 window.addEventListener('keyup', (event) => {
   switch (event.key) {
@@ -492,16 +573,18 @@ window.addEventListener('keyup', (event) => {
 })
 
 addEventListener('click', (event) => {
-  console.log(`click`)
   const angle = Math.atan2(
     event.clientY - canvas.height / 2,
     event.clientX - canvas.width / 2
   )
   const velocity = {
-    x: Math.cos(angle) * 5,
-    y: Math.sin(angle) * 5
+    x: Math.cos(angle) * 10, // Increased projectile speed for impact
+    y: Math.sin(angle) * 10
   }
   projectiles.push(
-    new Projectile(canvas.width / 2, canvas.height / 2, 5, 'white', velocity)
+    new Projectile(player.position.x + player.width / 2, player.position.y + player.height / 2, 8, 'white', velocity)
   )
 })
+
+// --- Start Game ---
+animate()
