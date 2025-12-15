@@ -4,6 +4,8 @@ let frames = 0
 let spawnRate = 240 // 4 seconds at 60fps
 let lastDespawnTime = 0 // Track when the last enemy was despawned
 let lastLifeGainTime = 0 // Track when the last life was gained
+let bgcolor = 'white'
+
 
 bgcolor = 'white'
 
@@ -330,28 +332,29 @@ function animate() {
     lastLifeGainTime = frames
   }
 
-  if (player.velocity.x !== 0) {
-    if (player.velocity.x < 0) {
-      player.velocity.x += 0
-    } else player.velocity.x -= 0
-  }
+if (player.velocity.x !== 0) {
+  if (player.velocity.x < 0) {
+    player.velocity.x += 0.4
+  } else player.velocity.x -= 0.4
+}
 
-  if (player.velocity.y !== 0) {
-    if (player.velocity.y < 0) {
-      player.velocity.y += 0.= 0
-    } else player.velocity.y -= 0
-  }
+if (player.velocity.y !== 0) {
+  if (player.velocity.y < 0) {
+    player.velocity.y += 0.4
+  } else player.velocity.y -= 0.4
+}
+
 
   if (keys.d.pressed) {
-    player.velocity.x += 2.5
+    player.velocity.x += 1
   } else if (keys.a.pressed) {
-    player.velocity.x += -2.5
+    player.velocity.x += -1
   }
 
   if (keys.s.pressed) {
-    player.velocity.y += 2.5
+    player.velocity.y += 1
   } else if (keys.w.pressed) {
-    player.velocity.y += -2.5
+    player.velocity.y += -1
   }
 
   if (player.velocity.x > 30) player.velocity.x = 30
