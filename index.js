@@ -441,9 +441,9 @@ class BounceEnemy {
       this.speed *= 1.33 // Increase speed on bounce
     }
 
-    // Update velocity with new speed
-    this.velocity.x = this.directionX * this.speed
-    this.velocity.y = this.directionY * this.speed
+    // Apply movement
+    this.position.x += this.velocity.x
+    this.position.y += this.velocity.y
 
     // Check for Player collision
     if (collision({
@@ -451,15 +451,6 @@ class BounceEnemy {
       object2: this
     })) {
       player.health -= 1
-      this.health = 0 // Mark for deletion
-    }
-
-    // Die on screen edge contact (after bouncing, if it goes off)
-    if (this.position.x + this.width <= 0 ||
-      this.position.x >= canvas.width ||
-      this.position.y + this.height <= 0 ||
-      this.position.y >= canvas.height
-    ) {
       this.health = 0 // Mark for deletion
     }
   }
