@@ -47,12 +47,13 @@ function projectileEnemyCollision(projectile, enemy) {
 }
 
 function getSpawnMultiplier(seconds) {
-  if (seconds < 10) return 1
+  if (seconds < 10) return 1.0
   if (seconds < 20) return 1.5
-  if (seconds < 30) return 2
+  if (seconds < 30) return 2.0
   if (seconds < 40) return 2.5
-  if (seconds < 50) return 3
-  return 3
+  if (seconds < 50) return 3.0
+  if (seconds < 60) return 4.0
+  return 4.0
 }
 
 // --- Classes ---
