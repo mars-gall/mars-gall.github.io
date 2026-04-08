@@ -5,11 +5,12 @@ const gameOverContainer = document.querySelector('#gameOverContainer')
 const restartButton = document.querySelector('#restartButton')
 
 let frames = 0
-let spawnRate = 360 // 6 seconds at 60fps
+let spawnRate = 300 // 5 seconds at 60fps
 let lastLifeGainTime = 0 // Track when the last life was gained
-let lastProjectileTime = -60 // Track projectile cooldown (frames)
+let lastProjectileTime = -120 // Track projectile cooldown (frames)
 let bgcolor = 'white'
 let blueSpawnChance = 0 // Starts at 0%, increases after 10 seconds
+let bounceSpawnChance = 15 // Fixed 15% spawn chance for the bounce enemy
 let gameIsOver = false
 let animationId = null
 
@@ -19,31 +20,38 @@ canvas.height = 576
 // --- Utility Functions ---
 
 function collision({ object1, object2 }) {
-  // Use circle-based collision for better hit detection
-  const r1 = object1.width / 2
-  const r2 = object2.width / 2
-  const cx1 = object1.position.x + r1
-  const cy1 = object1.position.y + r1
-  const cx2 = object2.position.x + r2
-  const cy2 = object2.position.y + r2
+  // Use rectangle-based collision for the player and enemy hitboxes
+  const rect1 = {
+    x: object1.position.x - object1.width / 2,
+    y: object1.position.y - object1.height / 2,
+    width: object1.width,
+    height: object1.height
+  }
 
-  const dx = cx2 - cx1
-  const dy = cy2 - cy1
-  const distance = Math.sqrt(dx * dx + dy * dy)
+  const rect2 = {
+    x: object2.position.x,
+    y: object2.position.y,
+    width: object2.width,
+    height: object2.height
+  }
 
-  return distance < r1 + r2
+  return (
+    rect1.x < rect2.x + rect2.width &&
+    rect1.x + rect1.width > rect2.x &&
+    rect1.y < rect2.y + rect2.height &&
+    rect1.y + rect1.height > rect2.y
+  )
 }
 
-// Custom collision for Projectile (Circle) vs Enemy (Rectangle/Circle-treated)
+// Custom collision for Projectile (Circle) vs Enemy (Rectangle)
 function projectileEnemyCollision(projectile, enemy) {
-  const enemyCenterX = enemy.position.x + enemy.width / 2
-  const enemyCenterY = enemy.position.y + enemy.height / 2
-  
-  const dx = projectile.x - enemyCenterX
-  const dy = projectile.y - enemyCenterY
-  const distance = Math.hypot(dx, dy)
-  
-  return distance < projectile.radius + enemy.width / 2
+  const closestX = Math.max(enemy.position.x, Math.min(projectile.x, enemy.position.x + enemy.width))
+  const closestY = Math.max(enemy.position.y, Math.min(projectile.y, enemy.position.y + enemy.height))
+
+  const dx = projectile.x - closestX
+  const dy = projectile.y - closestY
+
+  return dx * dx + dy * dy < projectile.radius * projectile.radius
 }
 
 function getSpawnMultiplier(seconds) {
@@ -157,22 +165,22 @@ class Enemy {
     }
 
 
-    // Wall bouncing with 0.75 speed
+    // Wall bouncing with 1.20 speed
     // Use the actual height/width of the enemy when checking bounds
     if (this.position.x + this.velocity.x <= 0 ||
       this.position.x + this.width + this.velocity.x >= canvas.width // Use 'width' for horizontal bounds
     ) {
-      this.velocity.x *= -0.75 // Adjusted bounce force to 0.75 for realism
+      this.velocity.x *= -1.00 // Adjusted bounce force to 1.20 for realism
     }
 
     if (this.position.y + this.velocity.y <= 0 ||
       this.position.y + this.height + this.velocity.y >= canvas.height // Use 'height' for vertical bounds
     ) {
-      this.velocity.y *= -0.75 // Adjusted bounce force to 0.75 for realism
+      this.velocity.y *= -1.00 // Adjusted bounce force to 1.20 for realism
     }
 
     // Max speed limits
-    const maxEnemySpeed = 25
+    const maxEnemySpeed = 30
     if (this.velocity.x > maxEnemySpeed) this.velocity.x = maxEnemySpeed
     if (this.velocity.y > maxEnemySpeed) this.velocity.y = maxEnemySpeed
     if (this.velocity.x < -maxEnemySpeed) this.velocity.x = -maxEnemySpeed
@@ -261,7 +269,7 @@ class Enemy {
     const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
 
     // Add acceleration towards predicted target position
-    const followForce = 0.25
+    const followForce = 0.3
     if (this.position.x > predictedX) {
       this.velocity.x -= followForce
     } else {
@@ -305,7 +313,7 @@ class LinearEnemy {
 
   draw() {
     c.fillStyle = this.color
-    c.fillRect(this.position.x, this.position.y, this.height, this.width)
+    c.fillRect(this.position.x, this.position.y, this.width, this.height)
   }
 
   update() {
@@ -359,6 +367,103 @@ class LinearEnemy {
   }
 }
 
+class BounceEnemy {
+  constructor({
+    position,
+    height,
+    width,
+    target,
+    color = 'rgb(255, 255, 0)'
+  }) {
+    this.position = position
+    this.height = height
+    this.width = width
+    this.target = target
+    this.color = color
+    this.spawnTime = frames
+    this.pauseTime = 30 // 0.5 seconds at 60fps
+    this.velocity = {
+      x: 0,
+      y: 0
+    }
+    
+    // Direction is chosen when the enemy unpauses, so it targets the player at that moment
+    this.directionX = null
+    this.directionY = null
+    this.speed = 15 // Starts with 15 speed
+    this.health = 2 // 2 hp
+  }
+
+  draw() {
+    c.fillStyle = this.color
+    c.fillRect(this.position.x, this.position.y, this.width, this.height)
+  }
+
+  update() {
+    this.draw()
+    
+    // Pause for 0.5 seconds (30 frames) before moving
+    if (frames - this.spawnTime < this.pauseTime) {
+      // During pause, don't move
+      this.velocity.x = 0
+      this.velocity.y = 0
+    } else {
+      // If direction hasn't been set yet, calculate it when unpausing
+      if (this.directionX === null || this.directionY === null) {
+        const dx = this.target.position.x - (this.position.x + this.width / 2)
+        const dy = this.target.position.y - (this.position.y + this.height / 2)
+        const distance = Math.hypot(dx, dy)
+        if (distance > 0) {
+          this.directionX = dx / distance
+          this.directionY = dy / distance
+        } else {
+          this.directionX = 0
+          this.directionY = 0
+        }
+      }
+      // After pause, apply constant velocity
+      this.velocity.x = this.directionX * this.speed
+      this.velocity.y = this.directionY * this.speed
+    }
+    
+    // Wall bouncing with speed increase
+    if (this.position.x + this.velocity.x <= 0 ||
+      this.position.x + this.width + this.velocity.x >= canvas.width
+    ) {
+      this.velocity.x *= -1
+      this.speed *= 1.33 // Increase speed on bounce
+    }
+
+    if (this.position.y + this.velocity.y <= 0 ||
+      this.position.y + this.height + this.velocity.y >= canvas.height
+    ) {
+      this.velocity.y *= -1
+      this.speed *= 1.33 // Increase speed on bounce
+    }
+
+    // Update velocity with new speed
+    this.velocity.x = this.directionX * this.speed
+    this.velocity.y = this.directionY * this.speed
+
+    // Check for Player collision
+    if (collision({
+      object1: player,
+      object2: this
+    })) {
+      player.health -= 1
+      this.health = 0 // Mark for deletion
+    }
+
+    // Die on screen edge contact (after bouncing, if it goes off)
+    if (this.position.x + this.width <= 0 ||
+      this.position.x >= canvas.width ||
+      this.position.y + this.height <= 0 ||
+      this.position.y >= canvas.height
+    ) {
+      this.health = 0 // Mark for deletion
+    }
+  }
+}
 
 class Projectile {
   constructor(x, y, radius, color, velocity) {
@@ -446,8 +551,8 @@ function animate() {
   for (let index = enemies.length - 1; index >= 0; index--) {
     const enemy = enemies[index]
     
-    // Check collision against all projectiles for this enemy (skip if LinearEnemy - immune)
-    if (!(enemy instanceof LinearEnemy)) {
+    // Check collision against all projectiles for this enemy (skip if LinearEnemy or BounceEnemy with immunity)
+    if (!(enemy instanceof LinearEnemy) && !(enemy instanceof BounceEnemy && frames - enemy.spawnTime < 300)) {
       for (let pIndex = projectiles.length - 1; pIndex >= 0; pIndex--) {
         const projectile = projectiles[pIndex]
 
@@ -489,7 +594,7 @@ function animate() {
     if (Math.abs(player.velocity.y) < friction) player.velocity.y = 0 // Stop if below friction threshold
   }
 
-  const acceleration = 0.8
+  const acceleration = 0.85
   if (keys.d.pressed) {
     player.velocity.x += acceleration
   } 
@@ -567,12 +672,48 @@ function animate() {
 
     if (validSpawn) {
       if (secondsPlayed >= 10) {
-        blueSpawnChance = Math.min(100, (secondsPlayed - 10) * 2)
+        blueSpawnChance = Math.min(50, (secondsPlayed - 10) * 2)
       } else {
         blueSpawnChance = 0
       }
 
-      if (Math.random() * 100 < blueSpawnChance) {
+      if (Math.random() * 100 < bounceSpawnChance) {
+        const bounceSize = enemySize * 0.75
+        const outerWidth = canvas.width * 0.1
+        const outerHeight = canvas.height * 0.1
+        let bounceSpawnPos = { x: 0, y: 0 }
+        const edge = Math.floor(Math.random() * 4)
+
+        if (edge === 0) {
+          bounceSpawnPos = {
+            x: Math.random() * (canvas.width - bounceSize),
+            y: Math.random() * outerHeight
+          }
+        } else if (edge === 1) {
+          bounceSpawnPos = {
+            x: canvas.width - bounceSize - Math.random() * outerWidth,
+            y: Math.random() * (canvas.height - bounceSize)
+          }
+        } else if (edge === 2) {
+          bounceSpawnPos = {
+            x: Math.random() * (canvas.width - bounceSize),
+            y: canvas.height - bounceSize - Math.random() * outerHeight
+          }
+        } else {
+          bounceSpawnPos = {
+            x: Math.random() * outerWidth,
+            y: Math.random() * (canvas.height - bounceSize)
+          }
+        }
+
+        enemies.push(new BounceEnemy({
+          position: bounceSpawnPos,
+          height: bounceSize,
+          width: bounceSize,
+          target: player,
+          color: 'rgb(255, 255, 0)' // Yellow
+        }))
+      } else if (Math.random() * 100 < blueSpawnChance) {
         const blueSize = enemySize * 0.75
         const outerWidth = canvas.width * 0.1
         const outerHeight = canvas.height * 0.1
@@ -633,9 +774,9 @@ function animate() {
 function restartGame() {
   // Reset all game variables
   frames = 0
-  spawnRate = 360
+  spawnRate = 300
   lastLifeGainTime = 0
-  lastProjectileTime = -60
+  lastProjectileTime = -120
   bgcolor = 'white'
   blueSpawnChance = 0
   gameIsOver = false
@@ -707,7 +848,7 @@ window.addEventListener('keyup', (event) => {
 })
 
 addEventListener('click', (event) => {
-  if (frames - lastProjectileTime < 60) {
+  if (frames - lastProjectileTime < 120) {
     return
   }
 
