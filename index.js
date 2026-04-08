@@ -1,12 +1,17 @@
 // --- Initial Setup ---
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
+const gameOverContainer = document.querySelector('#gameOverContainer')
+const restartButton = document.querySelector('#restartButton')
+
 let frames = 0
-let spawnRate = 240 // 4 seconds at 60fps
+let spawnRate = 360 // 6 seconds at 60fps
 let lastLifeGainTime = 0 // Track when the last life was gained
-let lastProjectileTime = -180 // Track projectile cooldown (frames)
+let lastProjectileTime = -60 // Track projectile cooldown (frames)
 let bgcolor = 'white'
 let blueSpawnChance = 0 // Starts at 0%, increases after 10 seconds
+let gameIsOver = false
+let animationId = null
 
 canvas.width = 1024
 canvas.height = 576
@@ -42,28 +47,11 @@ function projectileEnemyCollision(projectile, enemy) {
 }
 
 function getSpawnMultiplier(seconds) {
-  const points = [
-    { time: 0, mult: 1 },
-    { time: 10, mult: 1.33 },
-    { time: 20, mult: 1.67 },
-    { time: 30, mult: 2 },
-    { time: 40, mult: 2.33 },
-    { time: 50, mult: 2.67 },
-    { time: 60, mult: 3 }
-  ]
-
-  if (seconds <= 0) return 1
-  if (seconds >= 60) return 3
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const start = points[i]
-    const end = points[i + 1]
-    if (seconds >= start.time && seconds <= end.time) {
-      const factor = (seconds - start.time) / (end.time - start.time)
-      return start.mult + (end.mult - start.mult) * factor
-    }
-  }
-
+  if (seconds < 10) return 1
+  if (seconds < 20) return 1.5
+  if (seconds < 30) return 2
+  if (seconds < 40) return 2.5
+  if (seconds < 50) return 3
   return 3
 }
 
@@ -88,7 +76,7 @@ class Player {
 
   draw() {
     c.fillStyle = 'rgba(14, 127, 22, 1)'
-    c.fillRect(this.position.x, this.position.y, this.height, this.width)
+    c.fillRect(this.position.x - this.width / 2, this.position.y - this.height / 2, this.width, this.height)
     c.font = '50px Serif'
     c.fillStyle = 'black' // Set color before drawing text
     c.fillText('Lives: ' + String(this.health), 50, 50)
@@ -113,7 +101,7 @@ class Enemy {
     width,
     target,
     health,
-    color = 'rgba(119, 0, 0, 1)'
+    color = 'rgb(255, 0, 0)'
   }) {
     this.position = position
     this.height = height
@@ -132,7 +120,7 @@ class Enemy {
 
   draw() {
     c.fillStyle = this.color
-    c.fillRect(this.position.x, this.position.y, this.height, this.width)
+    c.fillRect(this.position.x, this.position.y, this.width, this.height)
   }
 
   update() {
@@ -145,7 +133,7 @@ class Enemy {
     })) {
       player.health -= 1
       this.health = 0 // Enemy dies on contact
-      this.collisionCooldown = 15 // Apply cooldown to player to prevent instant multiple hits
+      this.collisionCooldown = 5 // Apply cooldown to player to prevent instant multiple hits
     }
 
     // Apply movement after potential collision check
@@ -154,7 +142,7 @@ class Enemy {
     this.draw()
 
 
-    // Apply sliding/momentum deceleration (FIXED: changed 0.0 to 0.1)
+    // Apply sliding/momentum deceleration
     const enemyDeceleration = 0.1
     if (Math.abs(this.velocity.x) > 0) {
       this.velocity.x += (this.velocity.x < 0 ? enemyDeceleration : -enemyDeceleration)
@@ -182,8 +170,8 @@ class Enemy {
       this.velocity.y *= -0.75 // Adjusted bounce force to 0.75 for realism
     }
 
-    // Max speed limits (0.9 of player's max speed of 30, so 27)
-    const maxEnemySpeed = 27
+    // Max speed limits
+    const maxEnemySpeed = 25
     if (this.velocity.x > maxEnemySpeed) this.velocity.x = maxEnemySpeed
     if (this.velocity.y > maxEnemySpeed) this.velocity.y = maxEnemySpeed
     if (this.velocity.x < -maxEnemySpeed) this.velocity.x = -maxEnemySpeed
@@ -260,43 +248,11 @@ class Enemy {
   }
 
   move() {
-    // Don't move for 1.0 seconds after spawning (60 frames at 60fps)
-    if (frames - this.spawnTime < 60) {
+    // Don't move for 0.75 seconds after spawning (45 frames at 60fps)
+    if (frames - this.spawnTime < 45) {
       return
     }
-
-    // Separation: steer away from nearby enemies to avoid crowding (avoidRadius set to 100)
-    const avoidRadius = 100
-    let ax = 0
-    let ay = 0
-    let count = 0
-    const cx = this.position.x + this.width / 2
-    const cy = this.position.y + this.width / 2
-
-    for (let i = 0; i < enemies.length; i++) {
-      const other = enemies[i]
-      if (other === this) continue
-      const ox = other.position.x + other.width / 2
-      const oy = other.position.y + other.width / 2
-      const dx = cx - ox
-      const dy = cy - oy
-      const dist = Math.hypot(dx, dy)
-      if (dist > 0 && dist < avoidRadius) {
-        // Inverse distance strength: stronger force when closer
-        const strength = 1 - (dist / avoidRadius) 
-        ax += (dx / dist) * strength
-        ay += (dy / dist) * strength
-        count++
-      }
-    }
-
-    if (count > 0) {
-      ax /= count
-      ay /= count
-      const avoidForce = 0.2
-      this.velocity.x += ax * avoidForce
-      this.velocity.y += ay * avoidForce
-    }
+   
 
     // Prediction: Enemy tracks player movement
     const predictionFrames = 15 // Look ahead 15 frames
@@ -304,7 +260,7 @@ class Enemy {
     const predictedY = this.target.position.y + this.target.velocity.y * predictionFrames
 
     // Add acceleration towards predicted target position
-    const followForce = 0.3
+    const followForce = 0.25
     if (this.position.x > predictedX) {
       this.velocity.x -= followForce
     } else {
@@ -343,6 +299,7 @@ class LinearEnemy {
     this.directionX = null
     this.directionY = null
     this.speed = 30 // Constant high speed
+    this.health = 1
   }
 
   draw() {
@@ -353,7 +310,7 @@ class LinearEnemy {
   update() {
     this.draw()
     
-    // Pause for 3 seconds (180 frames) before moving
+    // Pause for 0.5 seconds (30 frames) before moving
     if (frames - this.spawnTime < this.pauseTime) {
       // During pause, don't move
       this.velocity.x = 0
@@ -361,8 +318,8 @@ class LinearEnemy {
     } else {
       // If direction hasn't been set yet, calculate it when unpausing
       if (this.directionX === null || this.directionY === null) {
-        const dx = this.target.position.x + this.target.width / 2 - (this.position.x + this.width / 2)
-        const dy = this.target.position.y + this.target.height / 2 - (this.position.y + this.height / 2)
+        const dx = this.target.position.x - (this.position.x + this.width / 2)
+        const dy = this.target.position.y - (this.position.y + this.height / 2)
         const distance = Math.hypot(dx, dy)
         if (distance > 0) {
           this.directionX = dx / distance
@@ -401,6 +358,7 @@ class LinearEnemy {
   }
 }
 
+
 class Projectile {
   constructor(x, y, radius, color, velocity) {
     this.x = x
@@ -424,12 +382,12 @@ class Projectile {
   }
 }
 
-// --- Game Objects and Initialization (MOVED UP FOR CORRECT EXECUTION) ---
+// --- Game Objects and Initialization ---
 
 const player = new Player({
   position: {
-    x: canvas.width / 2 - 25,
-    y: canvas.height / 2 - 25
+    x: canvas.width / 2,
+    y: canvas.height / 2
   },
   height: 50,
   width: 50,
@@ -439,7 +397,6 @@ const player = new Player({
 const enemies = []
 const projectiles = []
 
-// FIXED: MOVED KEYS UP SO ANIMATE CAN ACCESS THEM
 const keys = {
   d: {
     pressed: false,
@@ -458,7 +415,7 @@ const keys = {
 // --- Main Animation Loop ---
 
 function animate() {
-  const animationId = requestAnimationFrame(animate)
+  animationId = requestAnimationFrame(animate)
 
   // Clear canvas
   c.fillStyle = bgcolor
@@ -467,7 +424,7 @@ function animate() {
   // Player Update
   player.update()
 
-  // Projectile Update and Cleanup (FIXED: ADDED)
+  // Projectile Update and Cleanup
   for (let index = projectiles.length - 1; index >= 0; index--) {
     const projectile = projectiles[index]
     projectile.update()
@@ -512,8 +469,8 @@ function animate() {
 
   // --- Game State Management ---
 
-  // Gain 1 life every 24 seconds (1440 frames at 60fps)
-  if (frames - lastLifeGainTime > 1440) {
+  // Gain 1 life every 20 seconds (1200 frames at 60fps)
+  if (frames - lastLifeGainTime > 1200) {
     player.health += 1
     lastLifeGainTime = frames
   }
@@ -546,21 +503,21 @@ function animate() {
     player.velocity.y -= acceleration
   }
 
-  const maxPlayerSpeed = 15 // Reduced max speed from 30 to 15 for better control
+  const maxPlayerSpeed = 15
   if (player.velocity.x > maxPlayerSpeed) player.velocity.x = maxPlayerSpeed
   if (player.velocity.y > maxPlayerSpeed) player.velocity.y = maxPlayerSpeed
   if (player.velocity.x < -maxPlayerSpeed) player.velocity.x = -maxPlayerSpeed
   if (player.velocity.y < -maxPlayerSpeed) player.velocity.y = -maxPlayerSpeed
 
   // Wall bouncing
-  if (player.position.x + player.velocity.x <= 0 ||
-    player.position.x + player.width + player.velocity.x >= canvas.width
+  if (player.position.x + player.velocity.x - player.width / 2 <= 0 ||
+    player.position.x + player.velocity.x + player.width / 2 >= canvas.width
   ) {
     player.velocity.x *= -1
   }
 
-  if (player.position.y + player.velocity.y <= 0 ||
-    player.position.y + player.height + player.velocity.y >= canvas.height
+  if (player.position.y + player.velocity.y - player.height / 2 <= 0 ||
+    player.position.y + player.velocity.y + player.height / 2 >= canvas.height
   ) {
     player.velocity.y *= -1
   }
@@ -572,10 +529,10 @@ function animate() {
 
   if (frames % effectiveSpawnRate === 0) {
     let validSpawn = false
-    let spawnPos = { x: 0, y: 0 } // Initialize spawnPos
+    let spawnPos = { x: 0, y: 0 }
     const minDistance = canvas.width * 0.3
     const enemySize = 50
-    const buffer = 10 // buffer from walls
+    const buffer = 10
     let attempts = 0
     const maxAttempts = 100
 
@@ -586,15 +543,12 @@ function animate() {
         y: Math.floor(Math.random() * (canvas.height - enemySize - 2 * buffer) + buffer)
       }
 
-      // Calculate distance from player center
-      const dx = spawnPos.x + enemySize / 2 - (player.position.x + player.width / 2)
-      const dy = spawnPos.y + enemySize / 2 - (player.position.y + player.height / 2)
+      const dx = spawnPos.x + enemySize / 2 - player.position.x
+      const dy = spawnPos.y + enemySize / 2 - player.position.y
       const distance = Math.sqrt(dx * dx + dy * dy)
 
-      // Check if far enough from player
       if (distance < minDistance) continue
 
-      // Check if far enough from other enemies
       let tooClose = false
       for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i]
@@ -607,21 +561,16 @@ function animate() {
         }
       }
 
-      if (!tooClose) {
-        validSpawn = true
-      }
+      if (!tooClose) validSpawn = true
     }
-    
-    // Only spawn if a valid position was found
+
     if (validSpawn) {
-      // Update blue enemy spawn chance over time
       if (secondsPlayed >= 10) {
         blueSpawnChance = Math.min(100, (secondsPlayed - 10) * 2)
       } else {
         blueSpawnChance = 0
       }
 
-      // Spawn blue enemy based on current probability
       if (Math.random() * 100 < blueSpawnChance) {
         const blueSize = enemySize * 0.75
         const outerWidth = canvas.width * 0.1
@@ -630,25 +579,21 @@ function animate() {
         const edge = Math.floor(Math.random() * 4)
 
         if (edge === 0) {
-          // Top outer band
           linearSpawnPos = {
             x: Math.random() * (canvas.width - blueSize),
             y: Math.random() * outerHeight
           }
         } else if (edge === 1) {
-          // Right outer band
           linearSpawnPos = {
             x: canvas.width - blueSize - Math.random() * outerWidth,
             y: Math.random() * (canvas.height - blueSize)
           }
         } else if (edge === 2) {
-          // Bottom outer band
           linearSpawnPos = {
             x: Math.random() * (canvas.width - blueSize),
             y: canvas.height - blueSize - Math.random() * outerHeight
           }
         } else {
-          // Left outer band
           linearSpawnPos = {
             x: Math.random() * outerWidth,
             y: Math.random() * (canvas.height - blueSize)
@@ -660,7 +605,7 @@ function animate() {
           height: blueSize,
           width: blueSize,
           target: player,
-          color: 'rgba(0, 0, 255, 1)' // Blue for LinearEnemy
+          color: 'rgba(0, 0, 255, 1)'
         }))
       } else {
         enemies.push(new Enemy({
@@ -669,24 +614,51 @@ function animate() {
           width: enemySize,
           target: player,
           health: 1,
-          color: 'rgba(' + String(Math.floor(Math.random() * 255)) + ', 0, 0)'
+          color: 'rgb(255, 0, 0)'
         }))
       }
     }
-
-    // if (spawnRate > 20) spawnRate -= 2; // Fixed syntax and reduced speed up
   }
 
   frames++
 
-  // Game Over
-  if (player.health <= 0) {
-    c.font = '72px sans-serif'
-    c.fillStyle = 'red'
-    c.textAlign = 'center'
-    c.fillText('GAME OVER', canvas.width / 2, canvas.height / 2)
+  if (player.health <= 0 && !gameIsOver) {
+    gameIsOver = true
+    gameOverContainer.style.display = 'flex'
     cancelAnimationFrame(animationId)
   }
+}
+
+function restartGame() {
+  // Reset all game variables
+  frames = 0
+  spawnRate = 360
+  lastLifeGainTime = 0
+  lastProjectileTime = -60
+  bgcolor = 'white'
+  blueSpawnChance = 0
+  gameIsOver = false
+  
+  // Clear arrays
+  enemies.length = 0
+  projectiles.length = 0
+  
+  // Reset player
+  player.position = {
+    x: canvas.width / 2,
+    y: canvas.height / 2
+  }
+  player.velocity = {
+    x: 0,
+    y: 0
+  }
+  player.health = 5
+  
+  // Hide game over screen
+  gameOverContainer.style.display = 'none'
+  
+  // Restart animation loop
+  animate()
 }
 
 // --- Event Listeners ---
@@ -739,26 +711,29 @@ addEventListener('click', (event) => {
   }
 
   const rect = canvas.getBoundingClientRect()
-  const clickX = event.clientX - rect.left
-  const clickY = event.clientY - rect.top
-  const playerCenterX = player.position.x + player.width / 2
-  const playerCenterY = player.position.y + player.height / 2
+  const scaleX = canvas.width / rect.width
+  const scaleY = canvas.height / rect.height
+  const clickX = (event.clientX - rect.left) * scaleX
+  const clickY = (event.clientY - rect.top) * scaleY
 
   const angle = Math.atan2(
-    clickY - playerCenterY,
-    clickX - playerCenterX
+    clickY - player.position.y,
+    clickX - player.position.x
   )
 
   const velocity = {
-    x: Math.cos(angle) * 18,
-    y: Math.sin(angle) * 18
+    x: Math.cos(angle) * 20 + player.velocity.x * 0.5,
+    y: Math.sin(angle) * 20 + player.velocity.y * 0.5
   }
 
   projectiles.push(
-    new Projectile(playerCenterX, playerCenterY, 8, 'black', velocity)
+    new Projectile(player.position.x, player.position.y, 8, 'black', velocity)
   )
   lastProjectileTime = frames
 })
+
+// --- Event Listener for Restart Button ---
+restartButton.addEventListener('click', restartGame)
 
 // --- Start Game ---
 animate()
