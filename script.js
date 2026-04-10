@@ -17,7 +17,7 @@ let gameTime = 0;
 let lastProjectileTime = 0;
 let bgcolor = 'white';
 let linearSpawnChance = 0;
-let bouncySpawnChance = 15;
+let bounceSpawnChance = 15;
 let gameIsOver = false;
 let animationId = null;
 
@@ -98,8 +98,8 @@ class Player {
 class Enemy {
     constructor({
         position,
-        velocity,
         health = 1,
+        target,
         color = 'rgba(255, 0, 0, 0.5)',
         height = 50,
         width = 50,
@@ -157,7 +157,7 @@ class Enemy {
     ) {
         this.velocity.y *= -1.00
     }
-
+}
     const maxEnemyVelocity = 30
 
     if (this.velocity.x > maxEnemyVelocity) this.velocity.x = maxEnemyVelocity;
@@ -165,16 +165,94 @@ class Enemy {
     if (this.velocity.x < -maxEnemyVelocity) this.velocity.x = -maxEnemyVelocity;
     if (this.velocity.y < -maxEnemyVelocity) this.velocity.y = -maxEnemyVelocity;
 
-    const 
-}
-}
+    if (this.collisionCooldown > 0) {
+        this.collisionCooldown--
+    }
 
+    const myIndex = enemies.indexOf(this)
+    for (let i = myIndex + 1;
+        i < enemies.length;
+        i++
+    ) {
+        const other = enemies[i]
+        if (!other) continue
+        if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
+    }
 
-    update() {
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
-    };
+    const r1 = this.width / 2;
+    const r2 = other.width / 2;
+    const cx1 = this.position.x;
+    const cy1 = this.position.y;
+    const cx2 = other.position.x;
+    const cy2 = other.position.y;
 
+    const dx = cx2 - cx1;
+    const dy = cy2 - cy1;
+    let dist = Math.hypot(dx, dy);
+    const radii = r1 + r2;
+
+    if (dist === 0) {
+        dist = 1;
+    }
+
+    if (dist < radii) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = radii - dist;
+        const correction = overlap / 2;
+
+        this.position.x -= nx * correction;
+        this.position.y -= ny * correction;
+        other.position.x += nx * correction;
+        other.position.y += ny * correction;
+
+        const relativeVelocityX = other.velocity.x - this.velocity.x;
+        const relativeVelocityY = other.velocity.y - this.velocity.x;
+        const relativeVelocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
+
+        if (relativeVelocityAlongNormal > 0) {
+            this.collisionCooldown = 10
+            other.collisionCooldown = 10
+        }
+
+        const e = 1.0;
+        const j = -(1 + e) * relativeVelocityAlongNormal;
+        const impulseX = j * nx;
+        const impulseY = j * ny;
+
+        this.velocity.x -= impulseX;
+        this.velocity.y -= impulseY;
+        other.velocity.x += impulseX;
+        other.velocity.y += impulseY;
+
+        this.collisionCooldown = 10;
+        other.collisionCooldown = 10;
+    }
+    }
+
+    move() {
+        if (gameTime - this.spawnTime < 750) {
+            return
+        }
+
+        const predictionTicks = 15
+        const predictedX = this.target.position.x + this.target.velocity.x * predictionTicks
+        const predictedY = this.target.position.y + this.target.velocity.y * predictionTicks
+  
+        const followForce = 0.5
+        
+        if (this.position.x > predictedX) {
+            this.velocity.x -= followForce
+        } else {
+            this.velocity.x += followForce
+        }
+
+        if (this.position.y > predictedY) {
+            this.velocity.y -= followForce
+        } else {
+            this.velocity.y += followForce
+        }
+    }
 }
 
 const player = new Player({
