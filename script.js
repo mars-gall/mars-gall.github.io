@@ -12,7 +12,7 @@ let lastTime = performance.now();
 let accumulator = 0;
 
 
-let spawnRate = 1;
+let spawnRate = 5000;
 let gameTime = 0;
 let lastProjectileTime = 0;
 let bgcolor = 'white';
