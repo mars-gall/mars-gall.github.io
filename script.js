@@ -28,7 +28,7 @@ function gameloop(currentTime) {
     let deltatime = currentTime - lastTime;
     lastTime = currentTime;
 
-    if (deltatime > 100) deltatime = 100;
+    if (deltatime > 60) deltatime = 60;
 
     accumulator += deltatime;
 
@@ -86,13 +86,20 @@ class Player {
             this.width,
             this.height
         );
-
-        const totalSeconds = Math.floor(gameTime / 1000)
-        const seconds = totalSeconds % 60
-        const minutes = Math.floor(totalSeconds / 60)
-        const formattedSeconds = seconds.toString().padStart(2, '0')
-        ctx.fillText('Time: ' + minutes + ':' + formattedSeconds, 50, 100)
     };
+}
+
+
+
+function drawInfo(obj) {
+    ctx.fillStyle = 'Black';
+    ctx.font = '50px Serif';
+    ctx.fillText('Health: ' + obj.health, 50, 50);
+    const totalSeconds = Math.floor(gameTime / 1000)
+    const seconds = totalSeconds % 60
+    const minutes = Math.floor(totalSeconds / 60)
+    const formattedSeconds = seconds.toString().padStart(2, '0')
+    ctx.fillText('Time: ' + minutes + ':' + formattedSeconds, 50, 100);
 }
 
 class Enemy {
@@ -128,6 +135,8 @@ class Enemy {
     
 
     update() {
+
+        
         this.move()
 
         this.position.x += this.velocity.x;
@@ -153,7 +162,7 @@ class Enemy {
     if (this.position.x + this.velocity.x <= 0 ||
         this.position.x +this.width + this.velocity.x >= gameCanvas.width
     ) {
-        this.velocity.x *= -1.00
+        this.velocity.x *= -10.00
     }
 
       if (this.position.y + this.velocity.y <= 0 ||
@@ -270,6 +279,7 @@ function render() {
     ctx.fillRect (0, 0, gameCanvas.width, gameCanvas.height);
 
     player.draw();
+    drawInfo(player)
 
     ctx.fillStyle = 'black';
     ctx.fillText("Health: " + player.health, 50, 50)
@@ -328,17 +338,18 @@ function update() {
     if (keys.s.pressed) inputY += 1;
 
     if (inputX !== 0 || inputY !== 0) {
-        const length = Math.sqrt(inputX * inputX + inputY * inputY);
+        const length = Math.sqrt(inputX ** 2 + inputY ** 2);
         inputX /= length;
         inputY /= length;
-
+    
     player.velocity.x += inputX * acceleration;
     player.velocity.y += inputY * acceleration;
-    player.position.x += player.velocity.x
-    player.position.y += player.velocity.y
 }
 
-    const friction = 0.025
+player.position.x += player.velocity.x
+player.position.y += player.velocity.y
+
+    const friction = 0.025;
     if (Math.abs(player.velocity.x) > 0) {
         player.velocity.x *= (1 - friction)
         if (Math.abs(player.velocity.x) < friction) player.velocity.x = 0
@@ -352,16 +363,67 @@ function update() {
     if (player.position.x + player.velocity.x - player.width / 2 <=0 ||
         player.position.x + player.velocity.x + player.width /2 >= gameCanvas.width
     ) {
-        player.velocity.x *= -1
+        player.velocity.x *= -1.00
     }
 
      if (player.position.y + player.velocity.y - player.height / 2 <=0 ||
         player.position.y + player.velocity.y + player.height /2 >= gameCanvas.height
     ) {
-        player.velocity.y *= -1
+        player.velocity.y *= -1.00
     }
         
         gameTime += Tick_Time;
+}
+
+function animate() {
+    const secondsPlayed = Math.floor(gameTime / 1000)
+    const spawnMultiplier = getSpawnMultiplier(secondsPlayed)
+    const effectiveSpawnRate = Math.max(1, Math.round(spawnRate / spawnMultiplier))
+
+if (frames % effectiveSpawnRate === 0) {
+    let validSpawn = false
+    let spawnPos = { x: 0, y: 0 }
+    const minDistanceFromPlayer = canvas.width * 0.25
+    const buffer = 10
+    let attempts = 0
+    const maxAttempts = 100
+
+    while (!validSpawn && attempts < maxAttempts) {
+        attempts++
+        spawnPos = {
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height
+        }
+
+        const dx = spawnPos.x - player.position.x
+        const dy = spawnPos.y - player.position.y
+        const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2)
+
+        if (distanceFromPlayer >= minDistanceFromPlayer + buffer
+            && distanceFromPlayer <= Math.sqrt(canvas.width ** 2 + canvas.height ** 2) - buffer
+        ) continue
+
+        let tooCloseToEnemy = false
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i]
+            const edx = spawnPos.x - enemy.position.x
+            const edy = spawnPos.y - enemy.position.y
+            const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2)
+
+            if (distanceFromEnemy < buffer) {
+                tooCloseToEnemy = true
+                break
+            }
+        }
+        if (tooCloseToEnemy) continue
+
+        validSpawn = true
+    }
+
+    }
+
+
+
 }
 
 window.addEventListener('keyup', (event) => {
