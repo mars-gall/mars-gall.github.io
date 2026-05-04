@@ -12,7 +12,7 @@ let lastTime = performance.now();
 let accumulator = 0;
 
 
-let spawnRate = 5000;
+let spawnRate = 1;
 let gameTime = 0;
 let lastProjectileTime = 0;
 let bgcolor = 'white';
@@ -26,29 +26,6 @@ const enemies = [];
 
 gameCanvas.width = window.innerWidth
 gameCanvas.height = window.innerHeight
-
-function collision ({ object1, object2 }) {
-    const rect1 = {
-        x: object1.position.x - object1.width / 2,
-        y: object1.position.y - object1.height / 2,
-        width: object1.width,
-        height: object1.height
-    };
-
-    const rect2 = {
-        x: object2.position.x - object2.width / 2,
-        y: object2.position.y - object2.height / 2,
-        width: object2.width,
-        height: object2.height
-    };
-
-    return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.height > rect2.y
-    );
-}
 
 function gameloop(currentTime) {
     let deltatime = currentTime - lastTime;
@@ -72,13 +49,12 @@ function gameloop(currentTime) {
     requestAnimationFrame(gameloop);
 }
 
-
 function animate() {
 
     const minDistanceFromPlayer = gameCanvas.width * 0.25
     const minDistanceFromEnemy = 50
     const maxAttempts = 100
-    const buffer = 100
+    const buffer = 25
     
     const secondsPlayed = Math.floor(gameTime / 1000)
     const spawnMultiplier = getSpawnMultiplier(secondsPlayed)
@@ -117,22 +93,25 @@ function animate() {
 
             if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
                 tooCloseToEnemy = true
-                break;
             }  
         }
 
-        if (!tooCloseToEnemy) {
+        let edgeSpawnCheck = false
+            if (spawnPos.x < 25 || spawnPos.x > gameCanvas.width - 25 || spawnPos.y < 25 || spawnPos.y > gameCanvas.height - 25) {
+                edgeSpawnCheck = true
+            }
+
+        if (!tooCloseToEnemy && !edgeSpawnCheck) {
             validSpawn = true
             }
     }
 
-    if (gameTime - lastSpawnTime >= effectiveSpawnRate) {
-        const enemyPosition = spawnPos
+    if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
         const enemy = new Enemy({
-            position: enemyPosition,
+            position: spawnPos,
             target: player,
         })
-        enemies.push(Enemy);
+        enemies.push(enemy);
         lastSpawnTime = gameTime;
     }
 }
@@ -158,8 +137,6 @@ const keys = {
         pressed: false,
     },
 }
-
-
 
 class Player {
     constructor ({
@@ -188,8 +165,6 @@ class Player {
         );
     };
 }
-
-
 
 function drawInfo(obj) {
     ctx.fillStyle = 'Black';
@@ -232,8 +207,6 @@ class Enemy {
         );
     }
 
-    
-
     update() {
         this.move()
 
@@ -265,18 +238,18 @@ class Enemy {
             this.velocity.y = 0
         }
     
+    const EnemyBounceModifier = -1.00
         
     if (this.position.x + this.velocity.x <= 0 ||
         this.position.x +this.width + this.velocity.x >= gameCanvas.width
     ) {
-        this.velocity.x *= -1.00
+        this.velocity.x *= EnemyBounceModifier
     }
 
       if (this.position.y + this.velocity.y <= 0 ||
         this.position.y + this.height + this.velocity.y >= gameCanvas.height
     ) {
-        this.velocity.y *= -1.00
-
+        this.velocity.y *= EnemyBounceModifier
 }
 
     const maxEnemyVelocity = 30;
@@ -383,7 +356,6 @@ const player = new Player({
     velocity: { x: 0, y: 0 },
  })
 
-
 function render() {
     ctx.fillStyle = bgcolor;
     ctx.fillRect (0, 0, gameCanvas.width, gameCanvas.height);
@@ -398,7 +370,6 @@ function render() {
         enemy => enemy.draw()
     );
 }
-
 
 function collision({ object1, object2 }) {
     const rect1 = {
@@ -434,13 +405,13 @@ function getSpawnMultiplier(seconds) {
 
 function update() {
     const maxPlayerVelocity = 10
+    const playerBounceModifier = -1.00
+    const acceleration = 1;
    
     if (player.velocity.x > maxPlayerVelocity) player.velocity.x = maxPlayerVelocity
     if (player.velocity.x < -maxPlayerVelocity) player.velocity.x = -maxPlayerVelocity
     if (player.velocity.y > maxPlayerVelocity) player.velocity.y = maxPlayerVelocity
     if (player.velocity.y < -maxPlayerVelocity) player.velocity.y = -maxPlayerVelocity
-
-    const acceleration = 1;
 
     let inputX = 0;
     let inputY = 0;
@@ -476,15 +447,28 @@ player.position.y += player.velocity.y
     if (player.position.x + player.velocity.x - player.width / 2 <=0 ||
         player.position.x + player.velocity.x + player.width /2 >= gameCanvas.width
     ) {
-        player.velocity.x *= -1.00
+        player.velocity.x *= playerBounceModifier
     }
 
      if (player.position.y + player.velocity.y - player.height / 2 <=0 ||
         player.position.y + player.velocity.y + player.height /2 >= gameCanvas.height
     ) {
-        player.velocity.y *= -1.00
+        player.velocity.y *= playerBounceModifier
     }
-        
+
+    if (player.position.x <= 25) {
+        player.position.x = 25
+    }
+    if (player.position.x >= gameCanvas.width - 25) {
+        player.position.x = gameCanvas.width - 25
+    }
+    if (player.position.y <= 25) {
+        player.position.y = 25
+    }
+    if (player.position.y >= gameCanvas.height - 25) {
+        player.position.y = gameCanvas.height - 25
+    }
+
         gameTime += Tick_Time;
 }
 
@@ -505,6 +489,7 @@ function restartGame() {
         x: 0, 
         y: 0 
     };
+
     player.health = 5;
 
     enemies.length = 0; 
@@ -512,7 +497,6 @@ function restartGame() {
     gameOverContainer.style.display = 'none';
 
     animate();
-
 }
 
 window.addEventListener('keyup', (event) => {
@@ -555,10 +539,7 @@ window.addEventListener('keydown', (event) => {
             keys.s.pressed = true
             break
     }
-
 });
-
-
 
 restartButton.addEventListener('click', restartGame)
 
