@@ -12,7 +12,7 @@ let lastTime = performance.now();
 let accumulator = 0;
 
 
-let spawnRate = 300;
+let spawnRate = 5000;
 let gameTime = 0;
 let lastProjectileTime = 0;
 let bgcolor = 'white';
@@ -20,6 +20,9 @@ let linearSpawnChance = 0;
 let bounceSpawnChance = 15;
 let gameIsOver = false;
 let animationId = null;
+let lastSpawnTime = 0;
+
+const enemies = [];
 
 gameCanvas.width = window.innerWidth
 gameCanvas.height = window.innerHeight
@@ -41,7 +44,75 @@ function gameloop(currentTime) {
 
     render();
 
+    animate();
+
     requestAnimationFrame(gameloop);
+}
+
+
+function animate() {
+
+    const minDistanceFromPlayer = gameCanvas.width * 0.25
+    const minDistanceFromEnemy = 50
+    const maxAttempts = 100
+    const buffer = 100
+    
+    const secondsPlayed = Math.floor(gameTime / 1000)
+    const spawnMultiplier = getSpawnMultiplier(secondsPlayed)
+    const effectiveSpawnRate = spawnRate / spawnMultiplier
+    let spawnPos = {
+        x: Math.random() * gameCanvas.width,
+        y: Math.random() * gameCanvas.height
+    }
+
+    if (gameTime - lastSpawnTime >= effectiveSpawnRate) {
+    let validSpawn = false
+    let attempts = 0
+
+    while (!validSpawn && attempts < maxAttempts) {
+        attempts++
+        spawnPos = {
+            x: Math.random() * gameCanvas.width,
+            y: Math.random() * gameCanvas.height
+        }
+
+        const dx = spawnPos.x - player.position.x
+        const dy = spawnPos.y - player.position.y
+        const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2)
+
+       if (distanceFromPlayer < minDistanceFromPlayer + buffer)
+        continue; 
+
+
+        let tooCloseToEnemy = false;
+
+        for (let i = 0; i < enemies.length; i++) {
+            const enemy = enemies[i];
+            const edx = spawnPos.x - enemy.position.x;
+            const edy = spawnPos.y - enemy.position.y;
+            const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
+
+            if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
+                tooCloseToEnemy = true
+                break;
+            }  
+        }
+
+        if (!tooCloseToEnemy) {
+            validSpawn = true
+            }
+    }
+
+    if (gameTime - lastSpawnTime >= effectiveSpawnRate) {
+        const enemyPosition = spawnPos
+        const enemy = new Enemy({
+            position: enemyPosition,
+            target: player,
+        })
+        enemies.push(enemy);
+        lastSpawnTime = gameTime;
+    }
+}
 }
 
 const keys = {
@@ -107,7 +178,7 @@ class Enemy {
         position,
         health = 1,
         target,
-        color = 'rgba(255, 0, 0, 0.5)',
+        color = 'rgba(255, 0, 0, 1)',
         height = 50,
         width = 50,
     }) {
@@ -162,7 +233,7 @@ class Enemy {
     if (this.position.x + this.velocity.x <= 0 ||
         this.position.x +this.width + this.velocity.x >= gameCanvas.width
     ) {
-        this.velocity.x *= -10.00
+        this.velocity.x *= -1.00
     }
 
       if (this.position.y + this.velocity.y <= 0 ||
@@ -240,6 +311,8 @@ class Enemy {
 
         this.collisionCooldown = 10;
         other.collisionCooldown = 10;
+
+        enemies.forEach (enemy => enemy.update());
     }
     }
 
@@ -248,7 +321,7 @@ class Enemy {
             return
         }
 
-        const predictionTicks = 15
+        const predictionTicks = 250
         const predictedX = this.target.position.x + this.target.velocity.x * predictionTicks
         const predictedY = this.target.position.y + this.target.velocity.y * predictionTicks
   
@@ -283,6 +356,10 @@ function render() {
 
     ctx.fillStyle = 'black';
     ctx.fillText("Health: " + player.health, 50, 50)
+
+    enemies.forEach(
+        enemy => enemy.draw()
+    );
 }
 
 
@@ -316,7 +393,6 @@ function getSpawnMultiplier(seconds) {
   if (seconds < 40) return 2.5
   if (seconds < 50) return 3.0
   if (seconds < 60) return 4.0
-  return 4.0
 }
 
 function update() {
@@ -373,57 +449,6 @@ player.position.y += player.velocity.y
     }
         
         gameTime += Tick_Time;
-}
-
-function animate() {
-    const secondsPlayed = Math.floor(gameTime / 1000)
-    const spawnMultiplier = getSpawnMultiplier(secondsPlayed)
-    const effectiveSpawnRate = Math.max(1, Math.round(spawnRate / spawnMultiplier))
-
-if (frames % effectiveSpawnRate === 0) {
-    let validSpawn = false
-    let spawnPos = { x: 0, y: 0 }
-    const minDistanceFromPlayer = canvas.width * 0.25
-    const buffer = 10
-    let attempts = 0
-    const maxAttempts = 100
-
-    while (!validSpawn && attempts < maxAttempts) {
-        attempts++
-        spawnPos = {
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height
-        }
-
-        const dx = spawnPos.x - player.position.x
-        const dy = spawnPos.y - player.position.y
-        const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2)
-
-        if (distanceFromPlayer >= minDistanceFromPlayer + buffer
-            && distanceFromPlayer <= Math.sqrt(canvas.width ** 2 + canvas.height ** 2) - buffer
-        ) continue
-
-        let tooCloseToEnemy = false
-        for (let i = 0; i < enemies.length; i++) {
-            const enemy = enemies[i]
-            const edx = spawnPos.x - enemy.position.x
-            const edy = spawnPos.y - enemy.position.y
-            const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2)
-
-            if (distanceFromEnemy < buffer) {
-                tooCloseToEnemy = true
-                break
-            }
-        }
-        if (tooCloseToEnemy) continue
-
-        validSpawn = true
-    }
-
-    }
-
-
-
 }
 
 window.addEventListener('keyup', (event) => {
