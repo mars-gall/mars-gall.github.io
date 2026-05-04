@@ -210,6 +210,21 @@ class Enemy {
     update() {
         this.move()
 
+        const enemyVelocity = 1.00
+
+        if (player.position.x > this.position.x) {
+            this.velocity.x += enemyVelocity
+        }
+        if (player.position.x < this.position.x) {
+            this.velocity.x -= enemyVelocity
+        }
+        if (player.position.y > this.position.y) {
+            this.velocity.y += enemyVelocity
+        }
+        if (player.position.y < this.position.y) {
+            this.velocity.y -= enemyVelocity
+        }
+
         if (this.collisionCooldown === 0 && collision({
             object1: player,
             object2: this
@@ -327,7 +342,7 @@ class Enemy {
     }
 
     move() {
-        if (gameTime - this.spawnTime < 250) {
+        if (gameTime - this.spawnTime < 1) {
             return
         }
 
