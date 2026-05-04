@@ -27,6 +27,29 @@ const enemies = [];
 gameCanvas.width = window.innerWidth
 gameCanvas.height = window.innerHeight
 
+function collision ({ object1, object2 }) {
+    const rect1 = {
+        x: object1.position.x - object1.width / 2,
+        y: object1.position.y - object1.height / 2,
+        width: object1.width,
+        height: object1.height
+    };
+
+    const rect2 = {
+        x: object2.position.x - object2.width / 2,
+        y: object2.position.y - object2.height / 2,
+        width: object2.width,
+        height: object2.height
+    };
+
+    return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+    );
+}
+
 function gameloop(currentTime) {
     let deltatime = currentTime - lastTime;
     lastTime = currentTime;
@@ -109,10 +132,16 @@ function animate() {
             position: enemyPosition,
             target: player,
         })
-        enemies.push(enemy);
+        enemies.push(Enemy);
         lastSpawnTime = gameTime;
     }
 }
+
+       if (player.health <= 0 && !gameIsOver) {
+        gameIsOver = true
+        gameOverContainer.style.display = 'flex'
+        cancelAnimationFrame(animationId)
+       }
 }
 
 const keys = {
@@ -206,9 +235,16 @@ class Enemy {
     
 
     update() {
-
-        
         this.move()
+
+        if (this.collisionCooldown === 0 && collision({
+            object1: player,
+            object2: this
+        })) {
+            player.health -= 1
+            this.health -= 1
+            this.collisionCooldown = 10
+        }
 
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
@@ -297,6 +333,7 @@ class Enemy {
         if (relativeVelocityAlongNormal > 0) {
             this.collisionCooldown = 10
             other.collisionCooldown = 10
+
         }
 
         const e = 1.0;
@@ -317,7 +354,7 @@ class Enemy {
     }
 
     move() {
-        if (gameTime - this.spawnTime < 750) {
+        if (gameTime - this.spawnTime < 250) {
             return
         }
 
@@ -451,6 +488,33 @@ player.position.y += player.velocity.y
         gameTime += Tick_Time;
 }
 
+function restartGame() {
+    
+    gameTime = 0;
+    bgcolor = 'white';
+    linearSpawnChance = 0;
+    bounceSpawnChance = 15;
+    gameIsOver = false;
+    lastSpawnTime = 0;
+
+    player.position = {
+         x: gameCanvas.width / 2,
+         y: gameCanvas.height / 2 
+        };
+    player.velocity = { 
+        x: 0, 
+        y: 0 
+    };
+    player.health = 5;
+
+    enemies.length = 0; 
+
+    gameOverContainer.style.display = 'none';
+
+    animate();
+
+}
+
 window.addEventListener('keyup', (event) => {
     switch (event.key) {
         case 'd':
@@ -493,5 +557,9 @@ window.addEventListener('keydown', (event) => {
     }
 
 });
+
+
+
+restartButton.addEventListener('click', restartGame)
 
 requestAnimationFrame(gameloop);
