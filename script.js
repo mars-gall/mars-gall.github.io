@@ -292,17 +292,22 @@ class Enemy {
       if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue;
     }
 
-    const r1 = this.width / 2;
-    const r2 = other.width / 2;
-    const cx1 = this.position.x;
-    const cy1 = this.position.y;
-    const cx2 = other.position.x;
-    const cy2 = other.position.y;
+        const myIndex = enemies.indexOf(this)
+        for (let i = myIndex + 1;
+            i < enemies.length;
+            i++
+        ) {
+            const other = enemies[i]
+            if (!other) continue
+            if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
+        }
 
-    const dx = cx2 - cx1;
-    const dy = cy2 - cy1;
-    let dist = Math.hypot(dx, dy);
-    const radii = r1 + r2;
+        const r1 = this.width / 2;
+        const r2 = other.width / 2;
+        const cx1 = this.position.x;
+        const cy1 = this.position.y;
+        const cx2 = other.position.x;
+        const cy2 = other.position.y;
 
     if (dist === 0) {
       dist = 1;
