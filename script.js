@@ -110,7 +110,7 @@ function animate() {
     if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
       const enemy = new Enemy({
         position: spawnPos,
-        target: Player,
+        target: player,
       });
       enemies.push(enemy);
       lastSpawnTime = gameTime;
@@ -170,12 +170,12 @@ class Player {
 function drawInfo(obj) {
   ctx.fillStyle = "Black";
   ctx.font = "50px Serif";
-  ctx.fillText("Health: " + obj.health, 50, 50);
   const totalSeconds = Math.floor(gameTime / 1000);
   const seconds = totalSeconds % 60;
   const minutes = Math.floor(totalSeconds / 60);
   const formattedSeconds = seconds.toString().padStart(2, "0");
   ctx.fillText("Time: " + minutes + ":" + formattedSeconds, 50, 100);
+  ctx.fillText("Health: " + obj.health, 50, 50);
 }
 
 class Enemy {
@@ -183,6 +183,7 @@ class Enemy {
     position,
     health = 1,
     target,
+    collisionCooldown = 0,
     color = "rgba(255, 0, 0, 1)",
     height = 50,
     width = 50,
@@ -196,6 +197,7 @@ class Enemy {
     this.spawnTime = gameTime;
     this.isDead = false;
     this.target = target;
+    this.collisionCooldown = collisionCooldown;
   }
 
   draw() {
@@ -209,22 +211,16 @@ class Enemy {
   }
 
   update() {
-    this.move();
 
     const enemyVelocity = 1.0;
 
-    if (player.position.x > this.position.x) {
-      this.velocity.x += enemyVelocity;
-    }
-    if (player.position.x < this.position.x) {
-      this.velocity.x -= enemyVelocity;
-    }
-    if (player.position.y > this.position.y) {
-      this.velocity.y += enemyVelocity;
-    }
-    if (player.position.y < this.position.y) {
-      this.velocity.y -= enemyVelocity;
-    }
+const angle = Math.atan2(
+      this.target.position.y - this.position.y,
+      this.target.position.x - this.position.x
+    );
+
+    this.velocity.x += Math.cos(angle) * enemyVelocity;
+    this.velocity.y += Math.sin(angle) * enemyVelocity;
 
     if (
       this.collisionCooldown === 0 &&
@@ -290,29 +286,15 @@ class Enemy {
       const other = enemies[i];
       if (!other) continue;
       if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue;
-    }
 
-        const myIndex = enemies.indexOf(this)
-        for (let i = myIndex + 1;
-            i < enemies.length;
-            i++
-        ) {
-            const other = enemies[i]
-            if (!other) continue
-            if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
-        }
-
-        const r1 = this.width / 2;
-        const r2 = other.width / 2;
-        const cx1 = this.position.x;
-        const cy1 = this.position.y;
-        const cx2 = other.position.x;
-        const cy2 = other.position.y;
+    const dx = other.position.x - this.position.x;
+    const dy = other.position.y - this.position.y;
+    const dist = Math.hypot(dx,dy);
+    const radii = this.width / 2 + other.width / 2;
 
     if (dist === 0) {
       dist = 1;
     }
-
     if (dist < radii) {
       const nx = dx / dist;
       const ny = dy / dist;
@@ -333,7 +315,7 @@ class Enemy {
         this.collisionCooldown = 10;
         other.collisionCooldown = 10;
       }
-
+    }
       const e = 1.0;
       const j = -(1 + e) * relativeVelocityAlongNormal;
       const impulseX = j * nx;
@@ -346,13 +328,11 @@ class Enemy {
 
       this.collisionCooldown = 10;
       other.collisionCooldown = 10;
-
-      enemies.forEach((enemy) => enemy.update());
     }
   }
 
   move() {
-    if (gameTime - this.spawnTime < 1) {
+    if (gameTime - this.spawnTime < 250) {
       return;
     }
 
@@ -419,12 +399,12 @@ function collision({ object1, object2 }) {
 }
 
 function getSpawnMultiplier(seconds) {
-  if (seconds < 10) return 1.0;
-  if (seconds < 20) return 1.5;
-  if (seconds < 30) return 2.0;
-  if (seconds < 40) return 2.5;
-  if (seconds < 50) return 3.0;
-  if (seconds < 60) return 4.0;
+  if (seconds < 20) return 1.0;
+  if (seconds < 40) return 1.5;
+  if (seconds < 60) return 2.0;
+  if (seconds < 80) return 2.5;
+  if (seconds < 100) return 3.0;
+  if (seconds >= 100) return 4.0;
 }
 
 function update() {
@@ -498,6 +478,8 @@ function update() {
   if (player.position.y >= gameCanvas.height - 25) {
     player.position.y = gameCanvas.height - 25;
   }
+
+  enemies.forEach(enemy => enemy.update());
 
   gameTime += Tick_Time;
 }
