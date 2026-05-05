@@ -2,7 +2,7 @@ var gameCanvas = document.getElementById('gameCanvas');
 var ctx = gameCanvas.getContext('2d');
 ctx.font = '50px Serif';
 const gameOverContainer = document.querySelector('#gameOverContainer');
-const restartButton = document.querySelector('#restartButton'); 
+const restartButton = document.querySelector('#restartButton');
 
 const Tick_Rate = 60;
 const Tick_Time = 1000 / Tick_Rate;
@@ -55,7 +55,7 @@ function animate() {
     const minDistanceFromEnemy = 50
     const maxAttempts = 100
     const buffer = 25
-    
+
     const secondsPlayed = Math.floor(gameTime / 1000)
     const spawnMultiplier = getSpawnMultiplier(secondsPlayed)
     const effectiveSpawnRate = spawnRate / spawnMultiplier
@@ -65,62 +65,62 @@ function animate() {
     }
 
     if (gameTime - lastSpawnTime >= effectiveSpawnRate) {
-    let validSpawn = false
-    let attempts = 0
+        let validSpawn = false
+        let attempts = 0
 
-    while (!validSpawn && attempts < maxAttempts) {
-        attempts++
-        spawnPos = {
-            x: Math.random() * gameCanvas.width,
-            y: Math.random() * gameCanvas.height
-        }
+        while (!validSpawn && attempts < maxAttempts) {
+            attempts++
+            spawnPos = {
+                x: Math.random() * gameCanvas.width,
+                y: Math.random() * gameCanvas.height
+            }
 
-        const dx = spawnPos.x - player.position.x
-        const dy = spawnPos.y - player.position.y
-        const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2)
+            const dx = spawnPos.x - player.position.x
+            const dy = spawnPos.y - player.position.y
+            const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2)
 
-       if (distanceFromPlayer < minDistanceFromPlayer + buffer)
-        continue; 
+            if (distanceFromPlayer < minDistanceFromPlayer + buffer)
+                continue;
 
 
-        let tooCloseToEnemy = false;
+            let tooCloseToEnemy = false;
 
-        for (let i = 0; i < enemies.length; i++) {
-            const enemy = enemies[i];
-            const edx = spawnPos.x - enemy.position.x;
-            const edy = spawnPos.y - enemy.position.y;
-            const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
+            for (let i = 0; i < enemies.length; i++) {
+                const enemy = enemies[i];
+                const edx = spawnPos.x - enemy.position.x;
+                const edy = spawnPos.y - enemy.position.y;
+                const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
 
-            if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
-                tooCloseToEnemy = true
-            }  
-        }
+                if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
+                    tooCloseToEnemy = true
+                }
+            }
 
-        let edgeSpawnCheck = false
+            let edgeSpawnCheck = false
             if (spawnPos.x < 25 || spawnPos.x > gameCanvas.width - 25 || spawnPos.y < 25 || spawnPos.y > gameCanvas.height - 25) {
                 edgeSpawnCheck = true
             }
 
-        if (!tooCloseToEnemy && !edgeSpawnCheck) {
-            validSpawn = true
+            if (!tooCloseToEnemy && !edgeSpawnCheck) {
+                validSpawn = true
             }
+        }
+
+        if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
+            const enemy = new Enemy({
+                position: spawnPos,
+                target: player,
+            })
+            enemies.push(enemy);
+            lastSpawnTime = gameTime;
+        }
     }
 
-    if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
-        const enemy = new Enemy({
-            position: spawnPos,
-            target: player,
-        })
-        enemies.push(enemy);
-        lastSpawnTime = gameTime;
-    }
-}
-
-       if (player.health <= 0 && !gameIsOver) {
+    if (player.health <= 0 && !gameIsOver) {
         gameIsOver = true
         gameOverContainer.style.display = 'flex'
         cancelAnimationFrame(animationId)
-       }
+    }
 }
 
 const keys = {
@@ -139,7 +139,7 @@ const keys = {
 }
 
 class Player {
-    constructor ({
+    constructor({
         position,
         velocity,
         health = 5,
@@ -180,6 +180,7 @@ function drawInfo(obj) {
 class Enemy {
     constructor({
         position,
+        velocity = { x: 0, y: 0 },
         health = 1,
         target,
         color = 'rgba(255, 0, 0, 1)',
@@ -196,7 +197,7 @@ class Enemy {
         this.isDead = false
         this.target = target
     }
-    
+
     draw() {
         ctx.fillStyle = this.color
         ctx.fillRect(
@@ -212,18 +213,16 @@ class Enemy {
 
         const enemyVelocity = 1.00
 
-        if (player.position.x > this.position.x) {
-            this.velocity.x += enemyVelocity
-        }
-        if (player.position.x < this.position.x) {
-            this.velocity.x -= enemyVelocity
-        }
-        if (player.position.y > this.position.y) {
-            this.velocity.y += enemyVelocity
-        }
-        if (player.position.y < this.position.y) {
-            this.velocity.y -= enemyVelocity
-        }
+        const angle = Math.atan2(
+            this.target.position.x - this.position.x,
+            this.target.position.y - this.position.y
+        )
+
+        this.velocity.x = Math.cos(angle) * enemyVelocity;
+        this.velocity.y = Math.sin(angle) * enemyVelocity;
+
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
 
         if (this.collisionCooldown === 0 && collision({
             object1: player,
@@ -234,111 +233,108 @@ class Enemy {
             this.collisionCooldown = 10
         }
 
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
-
         const enemyDeceleration = 0.01;
 
         if (Math.abs(this.velocity.x) > 0.01) {
-            this.velocity.x *= (1 - enemyDeceleration) 
+            this.velocity.x *= (1 - enemyDeceleration)
         }
         if (Math.abs(this.velocity.x) < 0.01) {
-            this.velocity.x = 0 
+            this.velocity.x = 0
         }
 
         if (Math.abs(this.velocity.y) > 0.01) {
-            this.velocity.y *= (1 - enemyDeceleration) 
+            this.velocity.y *= (1 - enemyDeceleration)
         }
         if (Math.abs(this.velocity.y) < 0.01) {
             this.velocity.y = 0
         }
-    
-    const EnemyBounceModifier = -1.00
-        
-    if (this.position.x + this.velocity.x <= 0 ||
-        this.position.x +this.width + this.velocity.x >= gameCanvas.width
-    ) {
-        this.velocity.x *= EnemyBounceModifier
-    }
 
-      if (this.position.y + this.velocity.y <= 0 ||
-        this.position.y + this.height + this.velocity.y >= gameCanvas.height
-    ) {
-        this.velocity.y *= EnemyBounceModifier
-}
+        const EnemyBounceModifier = -1.00
 
-    const maxEnemyVelocity = 30;
-    if (this.velocity.x > maxEnemyVelocity) this.velocity.x = maxEnemyVelocity;
-    if (this.velocity.y > maxEnemyVelocity) this.velocity.y = maxEnemyVelocity;
-    if (this.velocity.x < -maxEnemyVelocity) this.velocity.x = -maxEnemyVelocity;
-    if (this.velocity.y < -maxEnemyVelocity) this.velocity.y = -maxEnemyVelocity;
-
-    if (this.collisionCooldown > 0) {
-        this.collisionCooldown--
-    }
-
-    const myIndex = enemies.indexOf(this)
-    for (let i = myIndex + 1;
-        i < enemies.length;
-        i++
-    ) {
-        const other = enemies[i]
-        if (!other) continue
-        if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
-    }
-
-    const r1 = this.width / 2;
-    const r2 = other.width / 2;
-    const cx1 = this.position.x;
-    const cy1 = this.position.y;
-    const cx2 = other.position.x;
-    const cy2 = other.position.y;
-
-    const dx = cx2 - cx1;
-    const dy = cy2 - cy1;
-    let dist = Math.hypot(dx, dy);
-    const radii = r1 + r2;
-
-    if (dist === 0) {
-        dist = 1;
-    }
-
-    if (dist < radii) {
-        const nx = dx / dist;
-        const ny = dy / dist;
-        const overlap = radii - dist;
-        const correction = overlap / 2;
-
-        this.position.x -= nx * correction;
-        this.position.y -= ny * correction;
-        other.position.x += nx * correction;
-        other.position.y += ny * correction;
-
-        const relativeVelocityX = other.velocity.x - this.velocity.x;
-        const relativeVelocityY = other.velocity.y - this.velocity.y;
-        const relativeVelocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
-
-        if (relativeVelocityAlongNormal > 0) {
-            this.collisionCooldown = 10
-            other.collisionCooldown = 10
-
+        if (this.position.x + this.velocity.x <= 0 ||
+            this.position.x + this.width + this.velocity.x >= gameCanvas.width
+        ) {
+            this.velocity.x *= EnemyBounceModifier
         }
 
-        const e = 1.0;
-        const j = -(1 + e) * relativeVelocityAlongNormal;
-        const impulseX = j * nx;
-        const impulseY = j * ny;
+        if (this.position.y + this.velocity.y <= 0 ||
+            this.position.y + this.height + this.velocity.y >= gameCanvas.height
+        ) {
+            this.velocity.y *= EnemyBounceModifier
+        }
 
-        this.velocity.x -= impulseX;
-        this.velocity.y -= impulseY;
-        other.velocity.x += impulseX;
-        other.velocity.y += impulseY;
+        const maxEnemyVelocity = 30;
+        if (this.velocity.x > maxEnemyVelocity) this.velocity.x = maxEnemyVelocity;
+        if (this.velocity.y > maxEnemyVelocity) this.velocity.y = maxEnemyVelocity;
+        if (this.velocity.x < -maxEnemyVelocity) this.velocity.x = -maxEnemyVelocity;
+        if (this.velocity.y < -maxEnemyVelocity) this.velocity.y = -maxEnemyVelocity;
 
-        this.collisionCooldown = 10;
-        other.collisionCooldown = 10;
+        if (this.collisionCooldown > 0) {
+            this.collisionCooldown--
+        }
 
-        enemies.forEach (enemy => enemy.update());
-    }
+        const myIndex = enemies.indexOf(this)
+        for (let i = myIndex + 1;
+            i < enemies.length;
+            i++
+        ) {
+            const other = enemies[i]
+            if (!other) continue
+            if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue
+        }
+
+        const r1 = this.width / 2;
+        const r2 = other.width / 2;
+        const cx1 = this.position.x;
+        const cy1 = this.position.y;
+        const cx2 = other.position.x;
+        const cy2 = other.position.y;
+
+        const dx = cx2 - cx1;
+        const dy = cy2 - cy1;
+        let dist = Math.hypot(dx, dy);
+        const radii = r1 + r2;
+
+        if (dist === 0) {
+            dist = 1;
+        }
+
+        if (dist < radii) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const overlap = radii - dist;
+            const correction = overlap / 2;
+
+            this.position.x -= nx * correction;
+            this.position.y -= ny * correction;
+            other.position.x += nx * correction;
+            other.position.y += ny * correction;
+
+            const relativeVelocityX = other.velocity.x - this.velocity.x;
+            const relativeVelocityY = other.velocity.y - this.velocity.y;
+            const relativeVelocityAlongNormal = relativeVelocityX * nx + relativeVelocityY * ny;
+
+            if (relativeVelocityAlongNormal > 0) {
+                this.collisionCooldown = 10
+                other.collisionCooldown = 10
+
+            }
+
+            const e = 1.0;
+            const j = -(1 + e) * relativeVelocityAlongNormal;
+            const impulseX = j * nx;
+            const impulseY = j * ny;
+
+            this.velocity.x -= impulseX;
+            this.velocity.y -= impulseY;
+            other.velocity.x += impulseX;
+            other.velocity.y += impulseY;
+
+            this.collisionCooldown = 10;
+            other.collisionCooldown = 10;
+
+            enemies.forEach(enemy => enemy.update());
+        }
     }
 
     move() {
@@ -349,9 +345,9 @@ class Enemy {
         const predictionTicks = 250
         const predictedX = this.target.position.x + this.target.velocity.x * predictionTicks
         const predictedY = this.target.position.y + this.target.velocity.y * predictionTicks
-  
+
         const followForce = 0.5
-        
+
         if (this.position.x > predictedX) {
             this.velocity.x -= followForce
         } else {
@@ -369,11 +365,11 @@ class Enemy {
 const player = new Player({
     position: { x: gameCanvas.width / 2, y: gameCanvas.height / 2 },
     velocity: { x: 0, y: 0 },
- })
+})
 
 function render() {
     ctx.fillStyle = bgcolor;
-    ctx.fillRect (0, 0, gameCanvas.width, gameCanvas.height);
+    ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
 
     player.draw();
     drawInfo(player)
@@ -410,19 +406,19 @@ function collision({ object1, object2 }) {
 }
 
 function getSpawnMultiplier(seconds) {
-  if (seconds < 10) return 1.0
-  if (seconds < 20) return 1.5
-  if (seconds < 30) return 2.0
-  if (seconds < 40) return 2.5
-  if (seconds < 50) return 3.0
-  if (seconds < 60) return 4.0
+    if (seconds < 20) return 1.0
+    if (seconds < 40) return 1.5
+    if (seconds < 60) return 2.0
+    if (seconds < 80) return 2.5
+    if (seconds < 100) return 3.0
+    if (seconds >= 100) return 4.0
 }
 
 function update() {
     const maxPlayerVelocity = 10
     const playerBounceModifier = -1.00
     const acceleration = 1;
-   
+
     if (player.velocity.x > maxPlayerVelocity) player.velocity.x = maxPlayerVelocity
     if (player.velocity.x < -maxPlayerVelocity) player.velocity.x = -maxPlayerVelocity
     if (player.velocity.y > maxPlayerVelocity) player.velocity.y = maxPlayerVelocity
@@ -440,13 +436,13 @@ function update() {
         const length = Math.sqrt(inputX ** 2 + inputY ** 2);
         inputX /= length;
         inputY /= length;
-    
-    player.velocity.x += inputX * acceleration;
-    player.velocity.y += inputY * acceleration;
-}
 
-player.position.x += player.velocity.x
-player.position.y += player.velocity.y
+        player.velocity.x += inputX * acceleration;
+        player.velocity.y += inputY * acceleration;
+    }
+
+    player.position.x += player.velocity.x
+    player.position.y += player.velocity.y
 
     const friction = 0.025;
     if (Math.abs(player.velocity.x) > 0) {
@@ -459,14 +455,14 @@ player.position.y += player.velocity.y
         if (Math.abs(player.velocity.y) < friction) player.velocity.y = 0
     }
 
-    if (player.position.x + player.velocity.x - player.width / 2 <=0 ||
-        player.position.x + player.velocity.x + player.width /2 >= gameCanvas.width
+    if (player.position.x + player.velocity.x - player.width / 2 <= 0 ||
+        player.position.x + player.velocity.x + player.width / 2 >= gameCanvas.width
     ) {
         player.velocity.x *= playerBounceModifier
     }
 
-     if (player.position.y + player.velocity.y - player.height / 2 <=0 ||
-        player.position.y + player.velocity.y + player.height /2 >= gameCanvas.height
+    if (player.position.y + player.velocity.y - player.height / 2 <= 0 ||
+        player.position.y + player.velocity.y + player.height / 2 >= gameCanvas.height
     ) {
         player.velocity.y *= playerBounceModifier
     }
@@ -484,11 +480,11 @@ player.position.y += player.velocity.y
         player.position.y = gameCanvas.height - 25
     }
 
-        gameTime += Tick_Time;
+    gameTime += Tick_Time;
 }
 
 function restartGame() {
-    
+
     gameTime = 0;
     bgcolor = 'white';
     linearSpawnChance = 0;
@@ -497,17 +493,17 @@ function restartGame() {
     lastSpawnTime = 0;
 
     player.position = {
-         x: gameCanvas.width / 2,
-         y: gameCanvas.height / 2 
-        };
-    player.velocity = { 
-        x: 0, 
-        y: 0 
+        x: gameCanvas.width / 2,
+        y: gameCanvas.height / 2
+    };
+    player.velocity = {
+        x: 0,
+        y: 0
     };
 
     player.health = 5;
 
-    enemies.length = 0; 
+    enemies.length = 0;
 
     gameOverContainer.style.display = 'none';
 
@@ -533,7 +529,7 @@ window.addEventListener('keyup', (event) => {
             keys.s.pressed = false
             break
     }
-})
+});
 
 window.addEventListener('keydown', (event) => {
     switch (event.key) {
