@@ -109,7 +109,7 @@ function animate() {
     if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
         const enemy = new Enemy({
             position: spawnPos,
-            target: player,
+            target: Player,
         })
         enemies.push(enemy);
         lastSpawnTime = gameTime;
