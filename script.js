@@ -237,23 +237,7 @@ const angle = Math.atan2(
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
-    const enemyDeceleration = 0.01;
-
-    if (Math.abs(this.velocity.x) > 0.01) {
-      this.velocity.x *= 1 - enemyDeceleration;
-    }
-    if (Math.abs(this.velocity.x) < 0.01) {
-      this.velocity.x = 0;
-    }
-
-    if (Math.abs(this.velocity.y) > 0.01) {
-      this.velocity.y *= 1 - enemyDeceleration;
-    }
-    if (Math.abs(this.velocity.y) < 0.01) {
-      this.velocity.y = 0;
-    }
-
-    const EnemyBounceModifier = -1.0;
+    const EnemyBounceModifier = -0.8;
 
     if (
       this.position.x + this.velocity.x <= 0 ||
@@ -269,7 +253,7 @@ const angle = Math.atan2(
       this.velocity.y *= EnemyBounceModifier;
     }
 
-    const maxEnemyVelocity = 30;
+    const maxEnemyVelocity = 20;
     if (this.velocity.x > maxEnemyVelocity) this.velocity.x = maxEnemyVelocity;
     if (this.velocity.y > maxEnemyVelocity) this.velocity.y = maxEnemyVelocity;
     if (this.velocity.x < -maxEnemyVelocity)
@@ -332,7 +316,7 @@ const angle = Math.atan2(
   }
 
   move() {
-    if (gameTime - this.spawnTime < 250) {
+    if (gameTime - this.spawnTime < 750) {;
       return;
     }
 
