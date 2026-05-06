@@ -110,7 +110,7 @@ function animate() {
     if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
       const enemy = new Enemy({
         position: spawnPos,
-        target: player,
+        target: player
       });
       enemies.push(enemy);
       lastSpawnTime = gameTime;
@@ -183,6 +183,7 @@ class Enemy {
     position,
     health = 1,
     target,
+    posGoal,
     collisionCooldown = 0,
     color = "rgba(255, 0, 0, 1)",
     height = 50,
@@ -197,6 +198,7 @@ class Enemy {
     this.spawnTime = gameTime;
     this.isDead = false;
     this.target = target;
+    this.posGoal = posGoal;
     this.collisionCooldown = collisionCooldown;
   }
 
@@ -212,11 +214,21 @@ class Enemy {
 
   update() {
 
-    const enemyVelocity = 1.0;
+    if (gameTime - this.spawnTime <= 750) {;
+      return;
+    }
 
-const angle = Math.atan2(
-      this.target.position.y - this.position.y,
-      this.target.position.x - this.position.x
+    const enemyVelocity = 1.0;
+    const predictionTicks = 250;
+
+    const predictedX =
+      this.target.position.x + this.target.velocity.x * predictionTicks;
+    const predictedY =
+      this.target.position.y + this.target.velocity.y * predictionTicks;
+
+    const angle = Math.atan2(
+      predictedX - this.position.x,
+      predictedY - this.position.y
     );
 
     this.velocity.x += Math.cos(angle) * enemyVelocity;
@@ -237,7 +249,20 @@ const angle = Math.atan2(
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
-    const EnemyBounceModifier = -0.8;
+    const EnemyBounceModifier = -5;
+
+    if (this.position.x < 24) {
+      this.position.x = 25;
+    }
+    if (this.position.x > gameCanvas.width - 24) {
+      this.position.x = gameCanvas.width - 25;
+    }
+    if (this.position.y < 24) {
+      this.position.y = 25;
+    }
+    if (this.position.y > gameCanvas.height - 24) {
+      this.position.y = gameCanvas.height - 25;
+    }
 
     if (
       this.position.x + this.velocity.x <= 0 ||
@@ -253,24 +278,24 @@ const angle = Math.atan2(
       this.velocity.y *= EnemyBounceModifier;
     }
 
-    const maxEnemyVelocity = 20;
-    if (this.velocity.x > maxEnemyVelocity) this.velocity.x = maxEnemyVelocity;
-    if (this.velocity.y > maxEnemyVelocity) this.velocity.y = maxEnemyVelocity;
-    if (this.velocity.x < -maxEnemyVelocity)
-      this.velocity.x = -maxEnemyVelocity;
-    if (this.velocity.y < -maxEnemyVelocity)
-      this.velocity.y = -maxEnemyVelocity;
+    const EnemyMaxVelocity = 18;
+    if (this.velocity.x > EnemyMaxVelocity) this.velocity.x = EnemyMaxVelocity;
+    if (this.velocity.y > EnemyMaxVelocity) this.velocity.y = EnemyMaxVelocity;
+    if (this.velocity.x < -EnemyMaxVelocity)
+      this.velocity.x = -EnemyMaxVelocity;
+    if (this.velocity.y < -EnemyMaxVelocity)
+      this.velocity.y = -EnemyMaxVelocity;
 
-    if (this.collisionCooldown > 0) {
+   /* if (this.collisionCooldown > 0) {
       this.collisionCooldown--;
-    }
+    }*/
 
     const myIndex = enemies.indexOf(this);
     for (let i = myIndex + 1; i < enemies.length; i++) {
       const other = enemies[i];
       if (!other) continue;
-      if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue;
-
+     /* if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue;
+*/
     const dx = other.position.x - this.position.x;
     const dy = other.position.y - this.position.y;
     const dist = Math.hypot(dx,dy);
@@ -295,11 +320,11 @@ const angle = Math.atan2(
       const relativeVelocityAlongNormal =
         relativeVelocityX * nx + relativeVelocityY * ny;
 
-      if (relativeVelocityAlongNormal > 0) {
+   /*   if (relativeVelocityAlongNormal > 0) {
         this.collisionCooldown = 10;
         other.collisionCooldown = 10;
-      }
-    }
+      }*/
+    
       const e = 1.0;
       const j = -(1 + e) * relativeVelocityAlongNormal;
       const impulseX = j * nx;
@@ -310,34 +335,9 @@ const angle = Math.atan2(
       other.velocity.x += impulseX;
       other.velocity.y += impulseY;
 
-      this.collisionCooldown = 10;
-      other.collisionCooldown = 10;
+ /*     this.collisionCooldown = 10;
+      other.collisionCooldown = 10;*/
     }
-  }
-
-  move() {
-    if (gameTime - this.spawnTime < 750) {;
-      return;
-    }
-
-    const predictionTicks = 250;
-    const predictedX =
-      this.target.position.x + this.target.velocity.x * predictionTicks;
-    const predictedY =
-      this.target.position.y + this.target.velocity.y * predictionTicks;
-
-    const followForce = 0.5;
-
-    if (this.position.x > predictedX) {
-      this.velocity.x -= followForce;
-    } else {
-      this.velocity.x += followForce;
-    }
-
-    if (this.position.y > predictedY) {
-      this.velocity.y -= followForce;
-    } else {
-      this.velocity.y += followForce;
     }
   }
 }
