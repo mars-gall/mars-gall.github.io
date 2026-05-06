@@ -184,7 +184,6 @@ class Enemy {
     health = 1,
     target,
     posGoal,
-    collisionCooldown = 0,
     color = "rgba(255, 0, 0, 1)",
     height = 50,
     width = 50,
@@ -199,7 +198,6 @@ class Enemy {
     this.isDead = false;
     this.target = target;
     this.posGoal = posGoal;
-    this.collisionCooldown = collisionCooldown;
   }
 
   draw() {
@@ -234,16 +232,9 @@ class Enemy {
     this.velocity.x += Math.cos(angle) * enemyVelocity;
     this.velocity.y += Math.sin(angle) * enemyVelocity;
 
-    if (
-      this.collisionCooldown === 0 &&
-      collision({
-        object1: player,
-        object2: this,
-      })
-    ) {
+    if (collision({object1: player, object2: this})) {
       player.health -= 1;
       this.health -= 1;
-      this.collisionCooldown = 10;
     }
 
     this.position.x += this.velocity.x;
@@ -251,16 +242,16 @@ class Enemy {
 
     const EnemyBounceModifier = -5;
 
-    if (this.position.x < 24) {
+    if (this.position.x < 25) {
       this.position.x = 25;
     }
-    if (this.position.x > gameCanvas.width - 24) {
+    if (this.position.x > gameCanvas.width - 25) {
       this.position.x = gameCanvas.width - 25;
     }
-    if (this.position.y < 24) {
+    if (this.position.y < 25) {
       this.position.y = 25;
     }
-    if (this.position.y > gameCanvas.height - 24) {
+    if (this.position.y > gameCanvas.height - 25) {
       this.position.y = gameCanvas.height - 25;
     }
 
@@ -286,16 +277,11 @@ class Enemy {
     if (this.velocity.y < -EnemyMaxVelocity)
       this.velocity.y = -EnemyMaxVelocity;
 
-   /* if (this.collisionCooldown > 0) {
-      this.collisionCooldown--;
-    }*/
-
     const myIndex = enemies.indexOf(this);
     for (let i = myIndex + 1; i < enemies.length; i++) {
       const other = enemies[i];
       if (!other) continue;
-     /* if (other.collisionCooldown > 0 || this.collisionCooldown > 0) continue;
-*/
+
     const dx = other.position.x - this.position.x;
     const dy = other.position.y - this.position.y;
     const dist = Math.hypot(dx,dy);
@@ -319,11 +305,6 @@ class Enemy {
       const relativeVelocityY = other.velocity.y - this.velocity.y;
       const relativeVelocityAlongNormal =
         relativeVelocityX * nx + relativeVelocityY * ny;
-
-   /*   if (relativeVelocityAlongNormal > 0) {
-        this.collisionCooldown = 10;
-        other.collisionCooldown = 10;
-      }*/
     
       const e = 1.0;
       const j = -(1 + e) * relativeVelocityAlongNormal;
@@ -334,9 +315,6 @@ class Enemy {
       this.velocity.y -= impulseY;
       other.velocity.x += impulseX;
       other.velocity.y += impulseY;
-
- /*     this.collisionCooldown = 10;
-      other.collisionCooldown = 10;*/
     }
     }
   }
