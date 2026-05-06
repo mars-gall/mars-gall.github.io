@@ -183,7 +183,6 @@ class Enemy {
     position,
     health = 1,
     target,
-    posGoal,
     color = "rgba(255, 0, 0, 1)",
     height = 50,
     width = 50,
@@ -197,7 +196,6 @@ class Enemy {
     this.spawnTime = gameTime;
     this.isDead = false;
     this.target = target;
-    this.posGoal = posGoal;
   }
 
   draw() {
@@ -217,7 +215,7 @@ class Enemy {
     }
 
     const enemyVelocity = 1.0;
-    const predictionTicks = 250;
+    const predictionTicks = 250 / Tick_Time;
 
     const predictedX =
       this.target.position.x + this.target.velocity.x * predictionTicks;
@@ -229,18 +227,18 @@ class Enemy {
       predictedY - this.position.y
     );
 
-    this.velocity.x += Math.cos(angle) * enemyVelocity;
-    this.velocity.y += Math.sin(angle) * enemyVelocity;
+    this.velocity.x += Math.sin(angle) * enemyVelocity;
+    this.velocity.y += Math.cos(angle) * enemyVelocity;
 
     if (collision({object1: player, object2: this})) {
-      player.health -= 1;
+      player.health -= 0;
       this.health -= 1;
     }
 
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
-    const EnemyBounceModifier = -5;
+    const EnemyBounceModifier = -1;
 
     if (this.position.x < 25) {
       this.position.x = 25;
@@ -281,7 +279,7 @@ class Enemy {
     for (let i = myIndex + 1; i < enemies.length; i++) {
       const other = enemies[i];
       if (!other) continue;
-
+    
     const dx = other.position.x - this.position.x;
     const dy = other.position.y - this.position.y;
     const dist = Math.hypot(dx,dy);
@@ -316,7 +314,7 @@ class Enemy {
       other.velocity.x += impulseX;
       other.velocity.y += impulseY;
     }
-    }
+  }
   }
 }
 
