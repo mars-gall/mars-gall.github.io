@@ -215,7 +215,7 @@ class Enemy {
     }
 
     const enemyVelocity = 1.0;
-    const predictionTicks = 250 / Tick_Time;
+    const predictionTicks = 25;
 
     const predictedX =
       this.target.position.x + this.target.velocity.x * predictionTicks;
@@ -240,29 +240,16 @@ class Enemy {
 
     const EnemyBounceModifier = -1;
 
-    if (this.position.x < 25) {
-      this.position.x = 25;
-    }
-    if (this.position.x > gameCanvas.width - 25) {
-      this.position.x = gameCanvas.width - 25;
-    }
-    if (this.position.y < 25) {
-      this.position.y = 25;
-    }
-    if (this.position.y > gameCanvas.height - 25) {
-      this.position.y = gameCanvas.height - 25;
-    }
-
     if (
       this.position.x + this.velocity.x <= 0 ||
-      this.position.x + this.width + this.velocity.x >= gameCanvas.width
+      this.position.x + this.width / 2 + this.velocity.x >= gameCanvas.width
     ) {
       this.velocity.x *= EnemyBounceModifier;
     }
 
     if (
       this.position.y + this.velocity.y <= 0 ||
-      this.position.y + this.height + this.velocity.y >= gameCanvas.height
+      this.position.y + this.height / 2 + this.velocity.y >= gameCanvas.height
     ) {
       this.velocity.y *= EnemyBounceModifier;
     }
@@ -368,7 +355,7 @@ function getSpawnMultiplier(seconds) {
 }
 
 function update() {
-  const maxPlayerVelocity = 10;
+  const maxPlayerVelocity = 12;
   const playerBounceModifier = -1.0;
   const acceleration = 1;
 
