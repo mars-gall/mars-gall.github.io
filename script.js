@@ -73,9 +73,9 @@ function animate() {
         y: Math.random() * gameCanvas.height,
       };
 
-      const dx = spawnPos.x - player.position.x;
-      const dy = spawnPos.y - player.position.y;
-      const distanceFromPlayer = Math.sqrt(dx ** 2 + dy ** 2);
+      const pdx = spawnPos.x - player.position.x;
+      const pdy = spawnPos.y - player.position.y;
+      const distanceFromPlayer = Math.sqrt(pdx ** 2 + pdy ** 2);
 
       if (distanceFromPlayer < minDistanceFromPlayer + buffer) continue;
 
@@ -86,11 +86,16 @@ function animate() {
         const edx = spawnPos.x - enemy.position.x;
         const edy = spawnPos.y - enemy.position.y;
         const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
+        if (enemy.health <= 0) {
+          enemies.splice(i, 1);
+          i--
+          enemies.length--;
+        }
+      
 
         if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
           tooCloseToEnemy = true;
         }
-      }
 
       let edgeSpawnCheck = false;
       if (
@@ -122,6 +127,7 @@ function animate() {
     gameOverContainer.style.display = "flex";
     cancelAnimationFrame(animationId);
   }
+}
 }
 
 const keys = {
@@ -215,7 +221,9 @@ class Enemy {
     }
 
     const enemyVelocity = 1.0;
-    const predictionTicks = 25;
+    const EnemyMaxVelocity = 18;
+    const EnemyBounceModifier = -1;
+    const predictionTicks = 10;
 
     const predictedX =
       this.target.position.x + this.target.velocity.x * predictionTicks;
@@ -231,14 +239,12 @@ class Enemy {
     this.velocity.y += Math.cos(angle) * enemyVelocity;
 
     if (collision({object1: player, object2: this})) {
-      player.health -= 0;
+      player.health -= 1;
       this.health -= 1;
     }
 
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
-
-    const EnemyBounceModifier = -1;
 
     if (
       this.position.x + this.velocity.x <= 0 ||
@@ -254,7 +260,6 @@ class Enemy {
       this.velocity.y *= EnemyBounceModifier;
     }
 
-    const EnemyMaxVelocity = 18;
     if (this.velocity.x > EnemyMaxVelocity) this.velocity.x = EnemyMaxVelocity;
     if (this.velocity.y > EnemyMaxVelocity) this.velocity.y = EnemyMaxVelocity;
     if (this.velocity.x < -EnemyMaxVelocity)
@@ -262,7 +267,21 @@ class Enemy {
     if (this.velocity.y < -EnemyMaxVelocity)
       this.velocity.y = -EnemyMaxVelocity;
 
+    if (this.position.x <= 25) {
+      this.position.x = 25;
+    }
+    if (this.position.x >= gameCanvas.width - 25) {
+      this.position.x = gameCanvas.width - 25;
+    }
+    if (this.position.y <= 25) {
+      this.position.y = 25;
+    }
+    if (this.position.y >= gameCanvas.height - 25) {
+      this.position.y = gameCanvas.height - 25;
+    }
+
     const myIndex = enemies.indexOf(this);
+
     for (let i = myIndex + 1; i < enemies.length; i++) {
       const other = enemies[i];
       if (!other) continue;
