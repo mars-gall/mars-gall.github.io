@@ -11,7 +11,7 @@ const MAX_TICKS = 5;
 let lastTime = performance.now();
 let accumulator = 0;
 
-let spawnRate = 5000;
+let spawnRate = 1;
 let gameTime = 0;
 let lastProjectileTime = 0;
 let bgcolor = "white";
@@ -57,6 +57,7 @@ function animate() {
   const secondsPlayed = Math.floor(gameTime / 1000);
   const spawnMultiplier = getSpawnMultiplier(secondsPlayed);
   const effectiveSpawnRate = spawnRate / spawnMultiplier;
+
   let spawnPos = {
     x: Math.random() * gameCanvas.width,
     y: Math.random() * gameCanvas.height,
@@ -72,42 +73,40 @@ function animate() {
         x: Math.random() * gameCanvas.width,
         y: Math.random() * gameCanvas.height,
       };
+    }
 
       const pdx = spawnPos.x - player.position.x;
       const pdy = spawnPos.y - player.position.y;
       const distanceFromPlayer = Math.sqrt(pdx ** 2 + pdy ** 2);
 
-      if (distanceFromPlayer < minDistanceFromPlayer + buffer) continue;
-
-      let tooCloseToEnemy = false;
+      let tooCloseToEnemy = true;
+      let tooCloseToPlayer = true;
+      let tooClosetoEdge = true;
 
       for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
         const edx = spawnPos.x - enemy.position.x;
         const edy = spawnPos.y - enemy.position.y;
         const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
-        if (enemy.health <= 0) {
-          enemies.splice(i, 1);
-          i--
-          enemies.length--;
-        }
       
-
         if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
-          tooCloseToEnemy = true;
+          tooCloseToEnemy = false;
         }
 
-      let edgeSpawnCheck = false;
+        if (distanceFromPlayer < minDistanceFromPlayer + buffer) {
+          tooCloseToPlayer = false;
+        };
+
       if (
-        spawnPos.x < 25 ||
-        spawnPos.x > gameCanvas.width - 25 ||
-        spawnPos.y < 25 ||
-        spawnPos.y > gameCanvas.height - 25
+        spawnPos.x < 30 ||
+        spawnPos.x > gameCanvas.width - 30 ||
+        spawnPos.y < 30 ||
+        spawnPos.y > gameCanvas.height - 30
       ) {
-        edgeSpawnCheck = true;
+        tooClosetoEdge = false;
       }
 
-      if (!tooCloseToEnemy && !edgeSpawnCheck) {
+      if (!tooCloseToEnemy && !tooClosetoEdge && !tooCloseToPlayer) {
         validSpawn = true;
       }
     }
@@ -127,7 +126,6 @@ function animate() {
     gameOverContainer.style.display = "flex";
     cancelAnimationFrame(animationId);
   }
-}
 }
 
 const keys = {
@@ -200,7 +198,6 @@ class Enemy {
     this.height = height;
     this.width = width;
     this.spawnTime = gameTime;
-    this.isDead = false;
     this.target = target;
   }
 
@@ -223,7 +220,7 @@ class Enemy {
     const enemyVelocity = 1.0;
     const EnemyMaxVelocity = 18;
     const EnemyBounceModifier = -1;
-    const predictionTicks = 10;
+    const predictionTicks = 5;
 
     const predictedX =
       this.target.position.x + this.target.velocity.x * predictionTicks;
@@ -242,6 +239,10 @@ class Enemy {
       player.health -= 1;
       this.health -= 1;
     }
+
+    if (this.health <= 0) {
+      enemies.splice(myIndex, 1);
+      }
 
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
