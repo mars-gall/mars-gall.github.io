@@ -81,14 +81,15 @@ function animate() {
 
       let tooCloseToEnemy = true;
       let tooCloseToPlayer = true;
-      let tooClosetoEdge = true;
+      let tooCloseToEdge = true;
 
-      for (let i = 0; i < enemies.length; i++) {
+   //   for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
         const edx = spawnPos.x - enemy.position.x;
         const edy = spawnPos.y - enemy.position.y;
         const distanceFromEnemy = Math.sqrt(edx ** 2 + edy ** 2);
-      
+  //    }
+
         if (distanceFromEnemy < minDistanceFromEnemy + buffer) {
           tooCloseToEnemy = false;
         }
@@ -96,22 +97,21 @@ function animate() {
         if (distanceFromPlayer < minDistanceFromPlayer + buffer) {
           tooCloseToPlayer = false;
         };
-
+      
       if (
         spawnPos.x < 30 ||
         spawnPos.x > gameCanvas.width - 30 ||
         spawnPos.y < 30 ||
         spawnPos.y > gameCanvas.height - 30
       ) {
-        tooClosetoEdge = false;
+        tooCloseToEdge = false;
       }
 
-      if (!tooCloseToEnemy && !tooClosetoEdge && !tooCloseToPlayer) {
+      if (!tooCloseToEnemy && !tooCloseToEdge && !tooCloseToPlayer) {
         validSpawn = true;
       }
-    }
 
-    if (gameTime - lastSpawnTime >= effectiveSpawnRate && validSpawn) {
+    if (validSpawn) {
       const enemy = new Enemy({
         position: spawnPos,
         target: player
@@ -213,7 +213,7 @@ class Enemy {
 
   update() {
 
-    if (gameTime - this.spawnTime <= 750) {;
+    if (gameTime - this.spawnTime <= 750) {
       return;
     }
 
@@ -240,23 +240,19 @@ class Enemy {
       this.health -= 1;
     }
 
-    if (this.health <= 0) {
-      enemies.splice(myIndex, 1);
-      }
-
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
 
     if (
       this.position.x + this.velocity.x <= 0 ||
-      this.position.x + this.width / 2 + this.velocity.x >= gameCanvas.width
+      this.position.x + this.width + this.velocity.x >= gameCanvas.width
     ) {
       this.velocity.x *= EnemyBounceModifier;
     }
 
     if (
       this.position.y + this.velocity.y <= 0 ||
-      this.position.y + this.height / 2 + this.velocity.y >= gameCanvas.height
+      this.position.y + this.height + this.velocity.y >= gameCanvas.height
     ) {
       this.velocity.y *= EnemyBounceModifier;
     }
@@ -293,7 +289,7 @@ class Enemy {
     const radii = this.width / 2 + other.width / 2;
 
     if (dist === 0) {
-      dist = 1;
+      let dist = 1;
     }
     if (dist < radii) {
       const nx = dx / dist;
@@ -321,6 +317,11 @@ class Enemy {
       other.velocity.x += impulseX;
       other.velocity.y += impulseY;
     }
+
+    if (this.health <= 0) {
+      enemies.splice(myIndex, 1);
+      }
+
   }
   }
 }
